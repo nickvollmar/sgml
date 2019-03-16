@@ -1,0 +1,54 @@
+ML:
+    datatype shape
+        = Circle   of loc * real      (* center and radius *)
+        | Square   of loc * real      (* upper-left corner and side length; axis-aligned *)
+        | Triangle of loc * loc * loc (* corners *)
+
+
+Haskell:
+    data Foo = Bar | Baz Int
+
+in both cases
+
+union declaration
+u : TagSet -> Type
+
+instance creation
+i : \some (tag : TagSet) u[tag]
+
+pattern matching
+t: \some (T: Type) \forall (tag : TagSet) u[tag] -> T
+
+
+NullableInt : \forall({Left, Right}) Type
+NullableInt Left = Int
+NullableInt Right = ()
+
+i : \some(tag: {Left, Right}) NullableInt(tag)
+i = (Left, 2)
+
+e : \some(tag: {Left, Right}) NullableInt(tag)
+e = (Right, ())
+
+m : \some(T: Type) \forall(tag: TagSet) \forall(u[tag]) T
+m = (Int, {
+  case Left => {i => i}
+  case Right => {_ => 0}
+})
+
+===
+
+Some(x : A) B(x)
+
+type 'a option = Some of 'a | None
+  equivalently:
+type 'a option = Some of 'a | None of unit
+
+
+These `type` declarations encode the following information:
+  - identifiers on LHS are elements of the (finite) domain
+  - types on RHS following `of` are the range
+
+Interestingly, no syntax analogous to 'a * 'b * 'c for "anonymous" unions.
+(in intersection case, ind. elements can be referred to by indices. Not sure if
+obvious analog exists in union case; at least, an analog that makes sense.)

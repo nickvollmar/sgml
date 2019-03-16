@@ -1,0 +1,65 @@
+Judgments
+
+a : A
+`a` is an object of type `A`
+
+a = b : A
+`a` and `b` are definitionally equal objects of type `A`
+
+introducing judgmental equality: ":="
+f(x) := x^2
+
+Specifying a new kind of type:
+formation rules
+	new types of this kind
+	we can form the function type A -> B when A is a type and when B is a type.
+constructors, introduction rules
+	new elements of this type
+	function type has lambda-abstraction
+eliminators, elimination rules
+	how to use elements of this type
+	function type has application
+computation rule
+	how an eliminator acts on a constructor
+	TODO: could this be considered part of elimination? it feels like we are kind of specifying "what elimination actually does"
+	function type has beta-reduction: (\x.E)(a) === substitution of `a` for `x` in `E`
+(optional) uniqueness principle
+	uniqueness of maps into or out of the type
+	function type has extensionality/eta-expansion
+
+Pi-Types
+Given a type A : U and a family B : A -> U, we can construct the type of dependent functions (x : A) => B(x)
+
+(x: A) => (\x.Int) === x -> Int
+
+\(x: A).e : Function[x: A, B(x)]
+
+B : Function[A, U]
+(assume B (function A U))
+
+(assume f (function Int Int Point))
+(typecheck (f 1) (function Int Point))
+(typecheck (f 12 1) Point)
+
+(assume f (-> Int Int Point))
+(typecheck (f 1) (-> Int Point))
+(typecheck (f 12 1) (-> Point))
+(typecheck (funcall f 12 1) Point)
+
+
+(assume [f (function Int Int Point)]
+	(typecheck (f 1) (function Int Point))
+	(typecheck (f 12 1) Point))
+
+int => Point
+
+isSet(A) := Pi[x, y : A] Pi[p, q : x==y] p == q.
+Magma := Sigma[A : U] A => A => A
+
+rec[A*B] : Pi[C: U] (A=>B=>C) => A*B => C
+rec[A*B](C, g, (a, b)) := g(a, b)
+pr1 := rec[A*B](A, \a.\b.a)
+pr2 := rec[A*B](B, \a.\b.b)
+
+swap: Pi[A,B,C: U] (A=>B=>C)=>(B=>A=>C)
+swap: Pi[A: U] Pi[B: U] Pi[C: U] (A=>B=>C)=>(B=>A=>C)
