@@ -19,9 +19,7 @@ def main(args):
     if command is not None:
         stream = sgml.reader.StringStream(command)
         form = sgml.reader.read_one(sgml.reader.INITIAL_MACROS, stream)
-        result = sgml.interpreter.evaluate(form, rt.base_env())
-        if result is not None:
-            print(rt.as_string(result))
+        sgml.interpreter.evaluate(form, rt.base_env())
         return 0
 
     if filename is not None:
@@ -30,9 +28,7 @@ def main(args):
             forms = sgml.reader.read_many(sgml.reader.INITIAL_MACROS, stream)
             env = rt.base_env()
             for form in rt.iter_elements(forms):
-                result = sgml.interpreter.evaluate(form, env)
-                if result is not None:
-                    print(rt.as_string(result))
+                sgml.interpreter.evaluate(form, env)
         return 0
     return 0
 

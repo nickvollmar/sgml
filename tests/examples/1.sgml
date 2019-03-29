@@ -1,0 +1,11 @@
+(define pairlis
+        (label pairlis (lambda (x y a)
+          (cond ((null x) a)
+                (t (cons (cons (car x) (car y))
+                         (pairlis (cdr x) (cdr y) a))))))
+
+        arg1 (quote (a b c))
+        arg2 (quote (u v w))
+        arg3 (quote ((d . x) (e . y))))
+
+(print "test" (pairlis arg1 arg2 arg3))

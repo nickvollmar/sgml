@@ -1,5 +1,4 @@
 import re
-from functools import partial
 
 import sgml.rt as rt
 

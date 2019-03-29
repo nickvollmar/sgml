@@ -161,7 +161,3 @@ def function_body(f):
 
 def function_static_env(f):
     return f.static_env
-
-
-def is_label(form):
-    return isinstance(form, Label)
