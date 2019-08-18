@@ -259,6 +259,8 @@ def _read_string(macros, stream, ch):
             escaped = True
         elif ch == '"':
             return rt.string(text)
+        else:
+            text += ch
     raise stream.error("EOF while reading string literal")
 
 
