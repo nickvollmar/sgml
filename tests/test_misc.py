@@ -5,7 +5,7 @@ import sgml.interpreter
 import sgml.reader
 import sgml.rt
 
-from utils import assert_forms_equal
+from tests.utils import assert_forms_equal
 
 
 in1 = """
@@ -23,7 +23,7 @@ out1 = """((a . u) (b . v) (c . w) (d . x) (e . y))"""
 
 class TestMisc(unittest.TestCase):
     def test1(self):
-        input_code = sgml.reader.read_one(
+        input_code = sgml.reader.read(
             sgml.reader.INITIAL_MACROS,
             sgml.reader.StringStream(in1)
         )

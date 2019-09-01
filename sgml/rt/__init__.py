@@ -3,7 +3,7 @@ import functools
 from sgml.rt.symbol import Symbol
 from sgml.rt.environment import Environment
 from sgml.rt.error import bail
-from sgml.rt.thunk import Applicative, Operative, SpecialFunction
+from sgml.rt.thunk import Applicative, Operative, PrimitiveFunction
 
 
 def _forms_to_list(forms, dotted=False):
@@ -122,40 +122,12 @@ def _print(args):
     strs = [as_string(arg) for arg in iter_elements(args)]
     print(*strs)
 
-SPECIAL_FUNCTIONS = {
-    symbol(name): SpecialFunction(name, func)
-
-    for (name, func) in [
-        ("car", lambda arguments: first(first(arguments))),
-        ("cdr", lambda arguments: rest(first(arguments))),
-        ("cons", lambda arguments: cons(first(arguments), second(arguments))),
-        ("atom", lambda arguments: is_atom(first(arguments))),
-        ("eq", lambda arguments: eq(first(arguments), second(arguments))),
-        ("null", lambda arguments: is_null(first(arguments))),
-        ("+", lambda arguments: functools.reduce(lambda x, y: x + y, iter_elements(arguments), 0)),
-        ("-", lambda arguments: functools.reduce(lambda x, y: x - y, iter_elements(arguments))),
-        ("*", lambda arguments: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
-        ("/", lambda arguments: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
-        ("print", _print),
-    ]
-}
+def is_primitive_function(fn):
+    return isinstance(fn, PrimitiveFunction)
 
 
-def is_special_function(fn):
-    return isinstance(fn, SpecialFunction)
-
-
-def apply_special_function(form: SpecialFunction, arguments):
+def apply_primitive_function(form: PrimitiveFunction, arguments):
     return form.f(arguments)
-
-
-def base_env():
-    env = {
-        symbol('t'): true(),
-        symbol('nil'): null()
-    }
-    env.update(SPECIAL_FUNCTIONS)
-    return Environment(env=env, parent=None)
 
 
 def operative(parameters, dynamic_env, body, static_env):
@@ -166,29 +138,90 @@ def is_operative(form):
     return isinstance(form, Operative)
 
 
-def operative_parameters(f):
+def operative_parameters(f: Operative):
     return f.parameters
 
 
-def operative_body(f):
+def operative_body(f: Operative):
     return f.body
 
 
-def operative_dynamic_env_parameter(f):
+def operative_dynamic_env_parameter(f: Operative):
     return f.dynamic_env_parameter
 
 
-def operative_static_env(f):
+def operative_static_env(f: Operative):
     return f.static_env
 
-
 def is_applicative(code):
-    return isinstance(code, (Applicative, SpecialFunction))
+    return isinstance(code, (Applicative, PrimitiveFunction))
 
+def wrap(operative):
+    return Applicative(operative)
 
-def applicative_underlying_combiner(applicative):
+def unwrap(applicative):
     if isinstance(applicative, Applicative):
         return applicative.combiner
-    if isinstance(applicative, SpecialFunction):
+    if isinstance(applicative, PrimitiveFunction):
         return applicative
-    raise AssertionError("applicative_underlying_combiner called on non-applicative {}".format(applicative))
+    raise AssertionError("unwrap called on non-applicative {}".format(applicative))
+
+PRIMITIVE_FUNCTIONS = {
+    symbol(name): PrimitiveFunction(name, func)
+
+    for (name, func) in [
+        ("car", lambda arguments: first(first(arguments))),
+        ("cdr", lambda arguments: rest(first(arguments))),
+        ("cons", lambda arguments: cons(first(arguments), second(arguments))),
+        ("atom", lambda arguments: is_atom(first(arguments))),
+        ("eq", lambda arguments: eq(first(arguments), second(arguments))),
+        ("null", lambda arguments: is_null(first(arguments))),
+        ("list", lambda arguments: arguments),
+        ("+", lambda arguments: functools.reduce(lambda x, y: x + y, iter_elements(arguments), 0)),
+        ("-", lambda arguments: functools.reduce(lambda x, y: x - y, iter_elements(arguments))),
+        ("*", lambda arguments: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
+        ("/", lambda arguments: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
+        ("print", _print),
+        ("wrap", lambda arguments: wrap(first(arguments))),
+        ("unwrap", lambda arguments: unwrap(first(arguments))),
+    ]
+}
+
+class SpecialForm:
+    def __init__(self, name):
+        self.name = name
+    def __repr__(self):
+        return "SpecialForm({})".format(self.name)
+
+QUOTE = SpecialForm("quote")
+COND = SpecialForm("cond")
+EVAL = SpecialForm("eval")
+MACRO = SpecialForm("macro")
+LABEL = SpecialForm("label")
+DEFINE = SpecialForm("define")
+LET = SpecialForm("let")  # TODO: define as macro when am more comfortable
+IGNORE = SpecialForm("_")
+
+SPECIAL_FORMS = {
+    symbol(form.name): form
+    for form in [
+        QUOTE,
+        COND,
+        EVAL,
+        MACRO,
+        LABEL,
+        DEFINE,
+        LET,
+        IGNORE,
+    ]
+}
+
+def base_env():
+    env = {
+        symbol('t'): true(),
+        symbol('nil'): null()
+    }
+    env.update(SPECIAL_FORMS)
+    env.update(PRIMITIVE_FUNCTIONS)
+    return Environment(env=env, parent=None)
+

@@ -3,7 +3,7 @@ import unittest
 import sgml.reader
 import sgml.rt
 
-from utils import assert_forms_equal
+from tests.utils import assert_forms_equal
 
 
 class TestReadList(unittest.TestCase):

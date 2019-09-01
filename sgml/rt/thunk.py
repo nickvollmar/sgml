@@ -17,15 +17,15 @@ class Operative:
         return "Operative(parameters={}, dynamic_env_parameter={}, body={}, static_env={})".format(
             self.parameters,
             self.dynamic_env_parameter,
-            "...",  # self.body,
+            self.body,
             self.static_env,
         )
 
-class SpecialFunction:
+class PrimitiveFunction:
     def __init__(self, name, f):
         self.name = name
         self.f = f
 
     def __repr__(self):
-        return "SpecialFunction(name={}, f={})".format(self.name, self.f)
+        return "PrimitiveFunction(name={}, f={})".format(self.name, self.f)
 
