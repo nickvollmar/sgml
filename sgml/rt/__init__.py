@@ -122,6 +122,7 @@ def _print(args):
     strs = [as_string(arg) for arg in iter_elements(args)]
     print(*strs)
 
+
 def is_primitive_function(fn):
     return isinstance(fn, PrimitiveFunction)
 
@@ -153,18 +154,22 @@ def operative_dynamic_env_parameter(f: Operative):
 def operative_static_env(f: Operative):
     return f.static_env
 
+
 def is_applicative(code):
     return isinstance(code, (Applicative, PrimitiveFunction))
 
-def wrap(operative):
-    return Applicative(operative)
 
-def unwrap(applicative):
-    if isinstance(applicative, Applicative):
-        return applicative.combiner
-    if isinstance(applicative, PrimitiveFunction):
-        return applicative
-    raise AssertionError("unwrap called on non-applicative {}".format(applicative))
+def wrap(f: Operative):
+    return Applicative(f)
+
+
+def unwrap(a):
+    if isinstance(a, Applicative):
+        return a.combiner
+    if isinstance(a, PrimitiveFunction):
+        return a
+    raise AssertionError("unwrap called on non-applicative {}".format(a))
+
 
 PRIMITIVE_FUNCTIONS = {
     symbol(name): PrimitiveFunction(name, func)
@@ -182,16 +187,20 @@ PRIMITIVE_FUNCTIONS = {
         ("*", lambda arguments: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
         ("/", lambda arguments: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
         ("print", _print),
+        # TODO: is this how to do this?
         ("wrap", lambda arguments: wrap(first(arguments))),
         ("unwrap", lambda arguments: unwrap(first(arguments))),
     ]
 }
 
+
 class SpecialForm:
     def __init__(self, name):
         self.name = name
+
     def __repr__(self):
         return "SpecialForm({})".format(self.name)
+
 
 QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
@@ -215,6 +224,7 @@ SPECIAL_FORMS = {
         IGNORE,
     ]
 }
+
 
 def base_env():
     env = {

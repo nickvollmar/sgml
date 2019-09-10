@@ -11,15 +11,7 @@ class Environment:
         return "Environment(" + str(self.env) + ")"
 
     def child_scope(self):
-        # def child_scope(self, *args):
-        # if len(args) % 2:
-        #     bail("internal error: child_scope called with odd number of forms")
-        child_env = {}
-        # for i in range(0, len(args), 2):
-        #     if not isinstance(args[i], Symbol):
-        #         bail("internal error: expected argument {} of child_scope() to be a symbol: {}", i, args[i])
-        #     child_env[args[i]] = args[i+1]
-        return Environment(env=child_env, parent=self)
+        return Environment(env={}, parent=self)
 
     def get(self, symbol):
         """

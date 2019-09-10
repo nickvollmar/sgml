@@ -1,14 +1,13 @@
 import unittest
 
-
-import sgml.interpreter
-import sgml.reader
-import sgml.rt
-
-from tests.utils import assert_forms_equal
-
+import tests
 
 in1 = """
+; TODO: remove this once lambda is a built-in
+(let ((lambda (macro (formals body) env
+                            (wrap (eval (list macro formals _ body)
+                                        env)))))
+
 ((label pairlis (lambda (x y a)
   (cond ((null x) a)
         (t (cons (cons (car x) (car y))
@@ -16,20 +15,13 @@ in1 = """
  (quote (a b c))
  (quote (u v w))
  (quote ((d . x) (e . y))))
+
+)
 """
 
 out1 = """((a . u) (b . v) (c . w) (d . x) (e . y))"""
 
 
-class TestMisc(unittest.TestCase):
+class TestMisc(tests.SgmlTestCase):
     def test1(self):
-        input_code = sgml.reader.read(
-            sgml.reader.INITIAL_MACROS,
-            sgml.reader.StringStream(in1)
-        )
-        expected = sgml.reader.read_one(
-            sgml.reader.INITIAL_MACROS,
-            sgml.reader.StringStream(out1)
-        )
-        actual = sgml.interpreter.evaluate(input_code, sgml.rt.base_env())
-        assert_forms_equal(self, expected, actual)
+        self.assertBothEval(in1, out1)

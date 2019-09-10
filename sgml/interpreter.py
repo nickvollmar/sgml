@@ -17,10 +17,10 @@ def apply(function, arguments, env):
             static_env.add(env_param, env)
         return evaluate(body, static_env)
 
-    if rt.is_atom(function) and not rt.is_symbol(function):
-        raise ValueError("apply() called on non-applicable object: {}".format(function))
+    if rt.is_symbol(function):
+        return apply(evaluate(function, env), arguments, env)
 
-    return apply(evaluate(function, env), arguments, env)
+    raise ValueError("apply() called on non-applicable object: {}".format(function))
 
 
 def evaluate(code, env):
@@ -101,5 +101,6 @@ def eval_list(lst, env):
     return rt.cons(hd, tl)
 
 
+# TODO: what was this for?
 def eval_quote(fn, x):
     return apply(fn, x, {})
