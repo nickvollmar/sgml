@@ -1,9 +1,9 @@
 import functools
 
-from sgml.rt.symbol import Symbol
-from sgml.rt.environment import Environment
+from sgml.symbol import Symbol
+from sgml.environment import Environment
 from sgml.rt.error import bail
-from sgml.rt.thunk import Applicative, Operative, PrimitiveFunction
+from sgml.thunk import Applicative, Operative, PrimitiveFunction
 
 
 def _forms_to_list(forms, dotted=False):

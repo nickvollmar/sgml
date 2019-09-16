@@ -1,6 +1,5 @@
 import re
 
-import sgml.rt as rt
 from sgml.reader.macros import Macros
 from sgml.reader.streams import Stream
 
@@ -26,7 +25,7 @@ def _is_constituent(macros, ch):
     return True
 
 
-def _read_token(macros, stream, ch):
+def _read_token(rt, macros, stream, ch):
     result = ch
     for ch in stream:
         if _is_whitespace(ch) or macros.is_terminating(ch):
@@ -45,17 +44,17 @@ def _read_token(macros, stream, ch):
     return rt.symbol(result)
 
 
-def _read(macros, stream):
+def _read(rt, macros, stream):
     for ch in stream:
         if _is_whitespace(ch):
             continue
         if ch in macros.initial:
             f = macros.initial[ch]
-            return f(macros, stream, ch)
-        return _read_token(macros, stream, ch)
+            return f(rt, macros, stream, ch)
+        return _read_token(rt, macros, stream, ch)
 
 
-def _read_list(macros, stream, ch):
+def _read_list(rt, macros, stream, ch):
     assert ch == '('
     forms = []
     dotted = False
@@ -71,7 +70,7 @@ def _read_list(macros, stream, ch):
         if dotted and seen_improper_cdr:
             raise stream.error("Expected one cdr in dotted s-expression")
         stream.ungetc(ch)
-        next_form = _read(macros, stream)
+        next_form = _read(rt, macros, stream)
         if next_form is None:
             continue
         if next_form == rt.symbol('.'):
@@ -87,7 +86,7 @@ def _read_list(macros, stream, ch):
     raise stream.error("EOF while reading list")
 
 
-def _read_line_comment(macros, stream, ch):
+def _read_line_comment(rt, macros, stream, ch):
     assert ch == ';'
     for ch in stream:
         if ch == '\n':
@@ -95,22 +94,22 @@ def _read_line_comment(macros, stream, ch):
     return None
 
 
-def _read_dispatch(macros, stream, ch):
+def _read_dispatch(rt, macros, stream, ch):
     assert ch == '#'
     for ch in stream:
         if ch not in macros.dispatch:
             raise stream.error("Illegal dispatch character {}".format(ch))
         f = macros.dispatch[ch]
-        return f(macros, stream, ch)
+        return f(rt, macros, stream, ch)
 
 
-def _ignore(macros, stream, ch):
+def _ignore(rt, macros, stream, ch):
     assert ch == "_"
-    _read(macros, stream)
+    _read(rt, macros, stream)
     return None
 
 
-def _read_string(macros, stream, ch):
+def _read_string(rt, macros, stream, ch):
     assert ch == '"'
     text = ""
     escaped = False
@@ -130,12 +129,12 @@ def _read_string(macros, stream, ch):
     raise stream.error("EOF while reading string literal")
 
 
-def _unmatched_delimiter(macros, stream, ch):
+def _unmatched_delimiter(rt, macros, stream, ch):
     raise stream.error("Unmatched delimiter: '{}'".format(ch))
 
 
-def read_one(macros, stream):
-    result = _read(macros, stream)
+def read_one(rt, macros, stream):
+    result = _read(rt, macros, stream)
     for ch in stream:
         if not _is_whitespace(ch):
             stream.ungetc(ch)
@@ -145,10 +144,10 @@ def read_one(macros, stream):
     return result
 
 
-def read_many(macros: Macros, stream: Stream):
+def read_many(rt, macros: Macros, stream: Stream):
     forms = []
     while not stream.at_eof():
-        form = _read(macros, stream)
+        form = _read(rt, macros, stream)
         if form is not None:
             forms.append(form)
     return rt._forms_to_list(forms)

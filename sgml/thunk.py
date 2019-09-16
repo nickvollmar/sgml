@@ -21,6 +21,7 @@ class Operative:
             self.static_env,
         )
 
+
 class PrimitiveFunction:
     def __init__(self, name, f):
         self.name = name
