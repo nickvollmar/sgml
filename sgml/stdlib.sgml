@@ -1,0 +1,3 @@
+(define lambda
+  (macro (formals body) env
+    (wrap (eval (list macro formals _ body) env))))

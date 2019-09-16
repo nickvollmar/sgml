@@ -1,8 +1,3 @@
-; TODO: remove this when lambda is builtin
-(define lambda
-  (macro (formals body) env
-    (wrap (eval (list macro formals _ body) env))))
-
 (define pairlis
         (label pairlis (lambda (x y a)
           (cond ((null x) a)
