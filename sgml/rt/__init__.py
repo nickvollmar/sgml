@@ -17,8 +17,8 @@ def symbol(text):
     return Symbol(text)
 
 
-def is_symbol(text):
-    return isinstance(text, Symbol)
+def is_symbol(form):
+    return isinstance(form, Symbol)
 
 
 def integer(i):
@@ -33,28 +33,28 @@ def true():
     return True
 
 
-def is_truthy(x):
-    return x is not False
+def is_truthy(form):
+    return form is not False
 
 
-def is_true(x):
-    return x is True
+def is_true(form):
+    return form is True
 
 
-def first(lst):
-    return lst[0]
+def first(form):
+    return form[0]
 
 
-def rest(lst):
-    return lst[1]
+def rest(form):
+    return form[1]
 
 
 def cons(head, tail):
     return (head, tail)
 
 
-def is_atom(x):
-    return not isinstance(x, tuple)
+def is_atom(form):
+    return not isinstance(form, tuple)
 
 
 def eq(x, y):
@@ -65,12 +65,12 @@ def null():
     return False
 
 
-def is_null(x):
-    return x is False
+def is_null(form):
+    return form is False
 
 
-def iter_elements(lst):
-    cur = lst
+def iter_elements(form):
+    cur = form
     while not is_atom(cur):
         yield first(cur)
         cur = rest(cur)
@@ -78,24 +78,24 @@ def iter_elements(lst):
         yield cur
 
 
-def second(lst):
-    return first(rest(lst))
+def second(form):
+    return first(rest(form))
 
 
-def third(lst):
-    return first(rest(rest(lst)))
+def third(form):
+    return first(rest(rest(form)))
 
 
-def fourth(lst):
-    return first(rest(rest(rest(lst))))
+def fourth(form):
+    return first(rest(rest(rest(form))))
 
 
-def length(lst):
+def length(form):
     result = 0
-    while not is_atom(lst):
+    while not is_atom(form):
         result += 1
-        lst = rest(lst)
-    return result + (0 if is_null(lst) else 1)
+        form = rest(form)
+    return result if is_null(form) else result + 1
 
 
 def as_string(form):
@@ -235,3 +235,14 @@ def base_env():
     env.update(PRIMITIVE_FUNCTIONS)
     return Environment(env=env, parent=None)
 
+
+def debug(form) -> str:
+    if is_symbol(form):
+        return form.text
+    if is_atom(form):
+        return repr(form)
+    return (
+        '('
+        + ' '.join(debug(f) for f in iter_elements(form))
+        + ')'
+    )

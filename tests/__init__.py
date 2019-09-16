@@ -5,6 +5,16 @@ from sgml.reader.streams import StringStream
 import unittest
 
 
+def _eval(code: str, env=None):
+    if env is None:
+        env = sgml.rt.base_env()
+    forms = sgml.reader.read_many(sgml.reader.INITIAL_MACROS, StringStream(code))
+    result = None
+    for form in sgml.rt.iter_elements(forms):
+        result = sgml.interpreter.evaluate(form, env)
+    return result
+
+
 class SgmlTestCase(unittest.TestCase):
     def assertFormsEqual(self, expected, actual, msg=None):
         if not sgml.rt.eq(expected, actual):
@@ -13,7 +23,7 @@ class SgmlTestCase(unittest.TestCase):
             raise self.failureException(msg)
 
     def assertEval(self, code: str, expected):
-        input_form = sgml.reader.read(
+        input_form = sgml.reader.read_one(
             sgml.reader.INITIAL_MACROS,
             StringStream(code)
         )
@@ -21,13 +31,6 @@ class SgmlTestCase(unittest.TestCase):
         self.assertEqual(expected, actual)
 
     def assertBothEval(self, code: str, expected_code: str):
-        input_code = sgml.reader.read(
-            sgml.reader.INITIAL_MACROS,
-            StringStream(code)
-        )
-        expected = sgml.reader.read_one(
-            sgml.reader.INITIAL_MACROS,
-            StringStream(expected_code)
-        )
-        actual = sgml.interpreter.evaluate(input_code, sgml.rt.base_env())
+        expected = _eval(expected_code)
+        actual = _eval(code)
         self.assertFormsEqual(expected, actual)

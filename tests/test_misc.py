@@ -19,7 +19,7 @@ in1 = """
 )
 """
 
-out1 = """((a . u) (b . v) (c . w) (d . x) (e . y))"""
+out1 = """(quote ((a . u) (b . v) (c . w) (d . x) (e . y)))"""
 
 
 class TestMisc(tests.SgmlTestCase):

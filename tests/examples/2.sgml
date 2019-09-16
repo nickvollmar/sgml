@@ -1,0 +1,25 @@
+#_(let ((lambda (macro (formals body) env
+                            (wrap (eval (list macro formals _ body)
+                                        env))))
+      )
+((label pairlis (lambda (x y a)
+                           (cond ((null x) a)
+                                 (t (cons (cons (car x) (car y))
+                                          (pairlis (cdr x) (cdr y) a))))))
+ (quote (a b c))
+ (quote (u v w))
+ (quote ((d . x) (e . y)))))
+
+(let ((lambda (macro (formals body) env
+                            (wrap (eval (list macro formals _ body)
+                                        env)))))
+
+((label pairlis (lambda (x y a)
+  (cond ((null x) a)
+        (t (cons (cons (car x) (car y))
+                 (pairlis (cdr x) (cdr y) a))))))
+ (quote (a b c))
+ (quote (u v w))
+ (quote ((d . x) (e . y))))
+
+)

@@ -133,6 +133,12 @@ class StringStream(Stream):
         self.text = text
         self.position = 0
 
+    def __repr__(self):
+        return "StringStream(text={}, position={})".format(
+            repr(self.text),
+            repr(self.position)
+        )
+
     def __next__(self):
         if self.position >= len(self.text):
             raise StopIteration

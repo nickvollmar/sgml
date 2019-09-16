@@ -45,7 +45,7 @@ def _read_token(macros, stream, ch):
     return rt.symbol(result)
 
 
-def read(macros, stream):
+def _read(macros, stream):
     for ch in stream:
         if _is_whitespace(ch):
             continue
@@ -71,7 +71,7 @@ def _read_list(macros, stream, ch):
         if dotted and seen_improper_cdr:
             raise stream.error("Expected one cdr in dotted s-expression")
         stream.ungetc(ch)
-        next_form = read(macros, stream)
+        next_form = _read(macros, stream)
         if next_form is None:
             continue
         if next_form == rt.symbol('.'):
@@ -90,8 +90,8 @@ def _read_list(macros, stream, ch):
 def _read_line_comment(macros, stream, ch):
     assert ch == ';'
     for ch in stream:
-        if ch != '\n':
-            continue
+        if ch == '\n':
+            break
     return None
 
 
@@ -106,7 +106,7 @@ def _read_dispatch(macros, stream, ch):
 
 def _ignore(macros, stream, ch):
     assert ch == "_"
-    read(macros, stream)
+    _read(macros, stream)
     return None
 
 
@@ -135,7 +135,7 @@ def _unmatched_delimiter(macros, stream, ch):
 
 
 def read_one(macros, stream):
-    result = read(macros, stream)
+    result = _read(macros, stream)
     for ch in stream:
         if not _is_whitespace(ch):
             stream.ungetc(ch)
@@ -148,7 +148,7 @@ def read_one(macros, stream):
 def read_many(macros: Macros, stream: Stream):
     forms = []
     while not stream.at_eof():
-        form = read(macros, stream)
+        form = _read(macros, stream)
         if form is not None:
             forms.append(form)
     return rt._forms_to_list(forms)
