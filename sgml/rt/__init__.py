@@ -1,9 +1,13 @@
 import functools
+import os
+import sys
 
-from sgml.symbol import Symbol
-from sgml.environment import Environment
+import sgml.interpreter
+import sgml.reader
+from sgml.rt.symbol import Symbol
+from sgml.rt.environment import Environment
 from sgml.rt.error import bail
-from sgml.thunk import Applicative, Operative, PrimitiveFunction
+from sgml.rt.thunk import Applicative, Operative, PrimitiveFunction
 
 
 def _forms_to_list(forms, dotted=False):
@@ -176,6 +180,7 @@ PRIMITIVE_FUNCTIONS = {
 
     for (name, func) in [
         ("car", lambda arguments: first(first(arguments))),
+        ("caar", lambda arguments: first(first(first(arguments)))),
         ("cdr", lambda arguments: rest(first(arguments))),
         ("cons", lambda arguments: cons(first(arguments), second(arguments))),
         ("atom", lambda arguments: is_atom(first(arguments))),
@@ -205,6 +210,7 @@ class SpecialForm:
 QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
 EVAL = SpecialForm("eval")
+APPLY = SpecialForm("apply")  # TODO: does this need to be a special form?
 MACRO = SpecialForm("macro")
 LABEL = SpecialForm("label")
 DEFINE = SpecialForm("define")
@@ -217,6 +223,7 @@ SPECIAL_FORMS = {
         QUOTE,
         COND,
         EVAL,
+        APPLY,
         MACRO,
         LABEL,
         DEFINE,
@@ -227,13 +234,21 @@ SPECIAL_FORMS = {
 
 
 def base_env():
-    env = {
+    primitive = {
         symbol('t'): true(),
-        symbol('nil'): null()
+        symbol('nil'): null(),
     }
-    env.update(SPECIAL_FORMS)
-    env.update(PRIMITIVE_FUNCTIONS)
-    return Environment(env=env, parent=None)
+    primitive.update(SPECIAL_FORMS)
+    primitive.update(PRIMITIVE_FUNCTIONS)
+    env = Environment(env=primitive, parent=None)
+    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+        stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+        # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+        module = sys.modules[__name__]
+        forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+        for form in iter_elements(forms):
+            sgml.interpreter.evaluate(module, form, env)
+    return env
 
 
 def debug(form) -> str:

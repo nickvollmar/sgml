@@ -1,4 +1,5 @@
 import sgml.main
+import sgml.rt
 import sgml.interpreter
 from sgml.reader.streams import StringStream
 
@@ -7,9 +8,8 @@ import unittest
 
 class SgmlTestCase(unittest.TestCase):
     def setUp(self):
-        rt, env = sgml.main.bootstrap()
-        self.rt = rt
-        self.env = env
+        self.rt = sgml.rt
+        self.env = self.rt.base_env()
 
     def eval(self, code: str):
         forms = sgml.reader.read_many(

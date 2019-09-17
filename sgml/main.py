@@ -1,4 +1,3 @@
-import os
 import sys
 
 import sgml.interpreter
@@ -6,16 +5,6 @@ import sgml.reader
 import sgml.rt
 
 USAGE = "Usage: python3 -m sgml.main [ -c <command> ] | [filename]"
-
-
-def bootstrap():
-    env = sgml.rt.base_env()
-    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-        stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-        forms = sgml.reader.read_many(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
-        for form in sgml.rt.iter_elements(forms):
-            sgml.interpreter.evaluate(sgml.rt, form, env)
-    return sgml.rt, env
 
 
 def main(args):
@@ -44,19 +33,18 @@ def main(args):
         return
 
     if command is not None:
-        rt, env = bootstrap()
         stream = sgml.reader.streams.StringStream(command)
-        form = sgml.reader.read_one(rt, sgml.reader.INITIAL_MACROS, stream)
-        sgml.interpreter.evaluate(rt, form, env)
+        form = sgml.reader.read_one(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
+        sgml.interpreter.evaluate(sgml.rt, form, sgml.rt.base_env())
         return 0
 
     if filename is not None:
         with open(filename, 'r') as f:
-            rt, env = bootstrap()
             stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-            forms = sgml.reader.read_many(rt, sgml.reader.INITIAL_MACROS, stream)
-            for form in rt.iter_elements(forms):
-                sgml.interpreter.evaluate(rt, form, env)
+            forms = sgml.reader.read_many(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
+            env = sgml.rt.base_env()
+            for form in sgml.rt.iter_elements(forms):
+                sgml.interpreter.evaluate(sgml.rt, form, env)
         return 0
     return 0
 

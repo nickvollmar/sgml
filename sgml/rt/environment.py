@@ -1,4 +1,4 @@
-from sgml.symbol import Symbol
+from sgml.rt.symbol import Symbol
 
 
 class Environment:

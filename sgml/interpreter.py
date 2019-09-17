@@ -47,6 +47,10 @@ def evaluate(rt, code, env):
         else:
             eval_env = rt.base_env()
         return evaluate(rt, eval_code, eval_env)
+    if head is rt.APPLY:
+        f = rt.unwrap(evaluate(rt, rt.second(code), env))
+        args = evaluate(rt, rt.third(code), env)
+        return apply(rt, f, args, env)
     if head is rt.MACRO:
         # (macro (x y z) (...))
         # from the Kernel concept "vau"

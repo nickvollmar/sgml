@@ -1,0 +1,23 @@
+(define lambda
+  (macro (formals body) env
+    (wrap (eval (list macro formals _ body) env))))
+
+
+;;; from the LISP 1.5 Programmer's Manual
+(define subst
+  (lambda (x y z)
+    (cond ((eq y z) x)
+          ((atom z) z)
+          (t (cons (subst x y (car z))
+                   (subst x y (cdr z)))))))
+(define pairlis
+  (label pairlis (lambda (x y a)
+    (cond ((null x) a)
+          (t (cons (cons (car x) (car y))
+                   (pairlis (cdr x) (cdr y) a)))))))
+(define assoc
+  (lambda (x a)
+    (cond ((eq (caar a) x) (car a))
+          (t (assoc x (cdr a))))))
+
+
