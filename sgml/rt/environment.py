@@ -30,3 +30,25 @@ class Environment:
         if symbol.text == "_":
             return
         self.env[symbol] = form
+
+    def add_match(self, rt, tree, obj):
+        """
+        Match the formal parameter tree to an object.
+        See kernel.pdf p51.
+
+        :param rt: Runtime instance
+        :param tree: The formal parameter tree
+        :param obj: The argument object
+        """
+        if rt.is_symbol(tree):
+            self.add(rt, tree, obj)
+            return
+        if tree is rt.IGNORE:
+            return
+        if rt.is_null(tree):
+            if not rt.is_null(obj):
+                rt.bail("arity error")
+            return
+        # it's a pair
+        self.add_match(rt, rt.first(tree), rt.first(obj))
+        self.add_match(rt, rt.rest(tree), rt.rest(obj))

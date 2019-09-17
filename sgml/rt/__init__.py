@@ -255,7 +255,7 @@ def base_env():
             for form in iter_elements(forms):
                 sgml.interpreter.evaluate(module, form, env)
         _cached_base_env = env
-    return Environment(env={}, parent=_cached_base_env)
+    return _cached_base_env.child_scope()
 
 
 def debug(form) -> str:
