@@ -20,4 +20,6 @@
     (cond ((eq (caar a) x) (car a))
           (t (assoc x (cdr a))))))
 
-
+(define apply
+  (lambda (appv args)
+    (eval (cons (unwrap appv) args))))

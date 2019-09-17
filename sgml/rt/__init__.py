@@ -122,7 +122,7 @@ def as_string(form):
     return result
 
 
-def _print(args):
+def _print(args, env):
     strs = [as_string(arg) for arg in iter_elements(args)]
     print(*strs)
 
@@ -131,8 +131,8 @@ def is_primitive_function(fn):
     return isinstance(fn, PrimitiveFunction)
 
 
-def apply_primitive_function(form: PrimitiveFunction, arguments):
-    return form.f(arguments)
+def apply_primitive_function(form: PrimitiveFunction, arguments, env):
+    return form.f(arguments, env)
 
 
 def operative(parameters, dynamic_env, body, static_env):
@@ -179,22 +179,25 @@ PRIMITIVE_FUNCTIONS = {
     symbol(name): PrimitiveFunction(name, func)
 
     for (name, func) in [
-        ("car", lambda arguments: first(first(arguments))),
-        ("caar", lambda arguments: first(first(first(arguments)))),
-        ("cdr", lambda arguments: rest(first(arguments))),
-        ("cons", lambda arguments: cons(first(arguments), second(arguments))),
-        ("atom", lambda arguments: is_atom(first(arguments))),
-        ("eq", lambda arguments: eq(first(arguments), second(arguments))),
-        ("null", lambda arguments: is_null(first(arguments))),
-        ("list", lambda arguments: arguments),
-        ("+", lambda arguments: functools.reduce(lambda x, y: x + y, iter_elements(arguments), 0)),
-        ("-", lambda arguments: functools.reduce(lambda x, y: x - y, iter_elements(arguments))),
-        ("*", lambda arguments: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
-        ("/", lambda arguments: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
+        ("car", lambda arguments, env: first(first(arguments))),
+        ("caar", lambda arguments, env: first(first(first(arguments)))),
+        ("cdr", lambda arguments, env: rest(first(arguments))),
+        ("cons", lambda arguments, env: cons(first(arguments), second(arguments))),
+        ("atom", lambda arguments, env: is_atom(first(arguments))),
+        ("eq", lambda arguments, env: eq(first(arguments), second(arguments))),
+        ("null", lambda arguments, env: is_null(first(arguments))),
+        ("list", lambda arguments, env: arguments),
+        ("+", lambda arguments, env: functools.reduce(lambda x, y: x + y, iter_elements(arguments), 0)),
+        ("-", lambda arguments, env: functools.reduce(lambda x, y: x - y, iter_elements(arguments))),
+        ("*", lambda arguments, env: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
+        ("/", lambda arguments, env: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
+        ("<", lambda arguments, env: first(arguments) < second(arguments)),
         ("print", _print),
         # TODO: is this how to do this?
-        ("wrap", lambda arguments: wrap(first(arguments))),
-        ("unwrap", lambda arguments: unwrap(first(arguments))),
+        ("wrap", lambda arguments, env: wrap(first(arguments))),
+        ("unwrap", lambda arguments, env: unwrap(first(arguments))),
+        ("make-environment", lambda _, __: base_env()),
+        ("get-current-environment", lambda _, env: env),
     ]
 }
 
@@ -210,7 +213,6 @@ class SpecialForm:
 QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
 EVAL = SpecialForm("eval")
-APPLY = SpecialForm("apply")  # TODO: does this need to be a special form?
 MACRO = SpecialForm("macro")
 LABEL = SpecialForm("label")
 DEFINE = SpecialForm("define")
@@ -223,7 +225,6 @@ SPECIAL_FORMS = {
         QUOTE,
         COND,
         EVAL,
-        APPLY,
         MACRO,
         LABEL,
         DEFINE,
@@ -233,22 +234,28 @@ SPECIAL_FORMS = {
 }
 
 
+_cached_base_env = None
+
+
 def base_env():
-    primitive = {
-        symbol('t'): true(),
-        symbol('nil'): null(),
-    }
-    primitive.update(SPECIAL_FORMS)
-    primitive.update(PRIMITIVE_FUNCTIONS)
-    env = Environment(env=primitive, parent=None)
-    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-        stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-        # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
-        module = sys.modules[__name__]
-        forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
-        for form in iter_elements(forms):
-            sgml.interpreter.evaluate(module, form, env)
-    return env
+    global _cached_base_env
+    if _cached_base_env is None:
+        primitive = {
+            symbol('t'): true(),
+            symbol('nil'): null(),
+        }
+        primitive.update(SPECIAL_FORMS)
+        primitive.update(PRIMITIVE_FUNCTIONS)
+        env = Environment(env=primitive, parent=None)
+        with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+            stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+            # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+            module = sys.modules[__name__]
+            forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+            for form in iter_elements(forms):
+                sgml.interpreter.evaluate(module, form, env)
+        _cached_base_env = env
+    return Environment(env={}, parent=_cached_base_env)
 
 
 def debug(form) -> str:

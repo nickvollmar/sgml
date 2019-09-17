@@ -1,6 +1,6 @@
 def apply(rt, function, arguments, env):
     if rt.is_primitive_function(function):
-        return rt.apply_primitive_function(function, arguments)
+        return rt.apply_primitive_function(function, arguments, env)
 
     if rt.is_operative(function):
         parameters = rt.operative_parameters(function)
@@ -47,10 +47,6 @@ def evaluate(rt, code, env):
         else:
             eval_env = rt.base_env()
         return evaluate(rt, eval_code, eval_env)
-    if head is rt.APPLY:
-        f = rt.unwrap(evaluate(rt, rt.second(code), env))
-        args = evaluate(rt, rt.third(code), env)
-        return apply(rt, f, args, env)
     if head is rt.MACRO:
         # (macro (x y z) (...))
         # from the Kernel concept "vau"

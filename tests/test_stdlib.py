@@ -33,3 +33,10 @@ class TestStdlib(tests.SgmlTestCase):
         """, """
             (quote (b . (car x)))
         """)
+
+    def test_apply(self):
+        self.assertEqual(6, self.eval("""
+            (let ((f (lambda (x y z) (* x y z)))
+                  (args (list 1 2 3)))
+              (apply f args))
+        """))

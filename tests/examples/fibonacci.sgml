@@ -1,0 +1,6 @@
+(define fibonacci
+  (label fib (lambda (n)
+    (cond ((< n 2) n)
+          (t (+ (fib (- n 2)) (fib (- n 1))))))))
+
+(print (fibonacci 21))
