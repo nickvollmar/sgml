@@ -1,3 +1,27 @@
+def match(rt, tree, obj, env):
+    """
+    Match the formal parameter tree to an object.
+    See kernel.pdf p51.
+
+    :param rt: Runtime instance
+    :param tree: The formal parameter tree
+    :param obj: The argument object
+    :param env: The environment in which to match (will be mutated)
+    """
+    if rt.is_symbol(tree):
+        env.add(rt, tree, obj)
+        return
+    if tree is rt.IGNORE:
+        return
+    if rt.is_null(tree):
+        if not rt.is_null(obj):
+            rt.bail("arity error")
+        return
+    # it's a pair
+    match(rt, rt.first(tree), rt.first(obj), env)
+    match(rt, rt.rest(tree), rt.rest(obj), env)
+
+
 def apply(rt, function, arguments, env):
     if rt.is_primitive_function(function):
         return rt.apply_primitive_function(function, arguments, env)
@@ -6,9 +30,7 @@ def apply(rt, function, arguments, env):
         parameters = rt.operative_parameters(function)
         body = rt.operative_body(function)
         static_env = rt.operative_static_env(function).child_scope()
-        # this is a special case of a general "match"
-        for param, arg in zip(rt.iter_elements(parameters), rt.iter_elements(arguments)):
-            static_env.add(rt, param, arg)
+        match(rt, parameters, arguments, static_env)
         env_param = rt.operative_dynamic_env_parameter(function)
         if env_param is not rt.IGNORE:
             static_env.add(rt, env_param, env)
@@ -71,11 +93,8 @@ def evaluate(rt, code, env):
         parameters = rt.second(code)
         for binding in rt.iter_elements(parameters):
             sym = rt.first(binding)
-            val = rt.second(binding)
-            if not rt.is_symbol(sym):
-                raise ValueError("left-hand side of let binding wasn't a symbol: {}".format(sym))
-            val = evaluate(rt, val, let_env)
-            let_env.add(rt, sym, val)
+            val = evaluate(rt, rt.second(binding), let_env)
+            match(rt, sym, val, let_env)
         body = rt.third(code)
         return evaluate(rt, body, let_env)
 
