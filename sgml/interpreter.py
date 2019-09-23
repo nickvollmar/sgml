@@ -9,7 +9,10 @@ def apply(rt, function, arguments, env):
         env_param = rt.operative_dynamic_env_parameter(function)
         static_env.add_match(rt, tree=parameters, obj=arguments)
         static_env.add_match(rt, tree=env_param, obj=env)
-        return evaluate(rt, body, static_env)
+        result = None
+        for form in rt.iter_elements(body):
+            result = evaluate(rt, form, static_env)
+        return result
 
     if rt.is_symbol(function):
         # Is this possible?
@@ -52,7 +55,7 @@ def evaluate(rt, code, env):
         # from the Kernel concept "vau"
         parameters = rt.second(code)
         env_formal = rt.third(code)
-        body = rt.fourth(code)
+        body = rt.rest(rt.rest(rt.rest(code)))
         return rt.operative(parameters, env_formal, body, env.child_scope())
     if head is rt.LABEL:
         # (label ff (lambda (x) (cond ...)))

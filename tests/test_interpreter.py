@@ -1,7 +1,20 @@
 import tests
 
+import sgml.rt.error
+
 
 class TestInterpreter(tests.SgmlTestCase):
+    def test_arity_error(self):
+        def f():
+            self.eval("""
+                (define supergreat
+                  (lambda (x y z)
+                    (print x y z)))
+                
+                (supergreat 1 2)
+            """)
+        self.assertRaises(sgml.rt.error.RuntimeException, f)
+
     def test_let(self):
         self.assertEqual(2, self.eval("(let ((x 1)) (+ x 1))"))
         self.assertEqual(19, self.eval("(let ((x nil) (x 19)) x)"))

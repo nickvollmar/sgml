@@ -1,0 +1,9 @@
+#_(define supergreat
+  (lambda (x y z)
+    (print x y z)))
+
+;; (supergreat 1 2)
+
+(let ((f (lambda j (print "j:" j) (cons (car j) (quote x))))
+      (input (quote (a b (c . d)))))
+  (print (maplist input f)))

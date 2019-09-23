@@ -1,9 +1,15 @@
 (define lambda
-  (macro (formals body) env
-    (wrap (eval (list macro formals _ body) env))))
+  (macro (formals . body) env
+    (wrap (eval (cons macro (cons formals (cons _ body))) env))))
 
 
 ;;; from the LISP 1.5 Programmer's Manual
+(define equal
+  (label _equal (lambda (x y) (cond
+    ((atom x) (if (atom y) (eq x y) nil))
+    ((_equal (car x) (car y)) (_equal (cdr x) (cdr y)))
+    (t nil)))))
+
 (define subst
   (lambda (x y z)
     (cond ((eq y z) x)
@@ -20,6 +26,31 @@
     (cond ((eq (caar a) x) (car a))
           (t (assoc x (cdr a))))))
 
+(define if
+  (macro (pred then else) env
+    (cond ((eval pred env) (eval then env))
+          (t               (eval else env)))))
+
+
 (define apply
-  (lambda (appv args)
-    (eval (cons (unwrap appv) args))))
+  (lambda (appv arg . opt)
+    (eval (cons (unwrap appv) arg)
+          (if (null opt) (make-environment) (car opt)))))
+
+(define maplist
+  (lambda (x fn)
+    (cond ((null x) nil)
+          (t (cons (fn (car x)) (maplist (cdr x) fn))))))
+
+(define length
+  (lambda (a)
+    (cond ((null a) 0)
+          ((atom a) 0)
+          (t (+ 1 (length (cdr a)))))))
+
+(define and
+  (macro x e
+    (cond ((null x) t)
+          ((null (cdr x)) (eval (car x) e))
+          ((eval (car x) e) (apply (wrap and) (cdr x) e))
+          (t nil))))

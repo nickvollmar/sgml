@@ -45,10 +45,10 @@ class Environment:
             return
         if tree is rt.IGNORE:
             return
-        if rt.is_null(tree):
-            if not rt.is_null(obj):
-                rt.bail("arity error")
+        if rt.is_null(tree) and rt.is_null(obj):
             return
+        if rt.is_null(tree) or rt.is_null(obj):
+            rt.bail("arity error")
         # it's a pair
         self.add_match(rt, rt.first(tree), rt.first(obj))
         self.add_match(rt, rt.rest(tree), rt.rest(obj))
