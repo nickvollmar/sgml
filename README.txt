@@ -9,3 +9,9 @@ Revised^{-1} Report on the Kernel Programming Language
 John N. Shutt
 Worcester Polytechnic Institute
 ftp://ftp.cs.wpi.edu/pub/techreports/pdf/05-07.pdf
+
+---
+
+A "plain old X function" (here, X=Python) is inherently applicative, so no
+continuation can be invoked by it -- it will either return control to the
+immediately surrounding computation, or abort the program.

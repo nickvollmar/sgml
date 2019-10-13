@@ -1,5 +1,7 @@
 import tests
 
+import sgml.rt.error
+
 
 class TestStdlib(tests.SgmlTestCase):
     def test_subst(self):
@@ -65,6 +67,13 @@ class TestStdlib(tests.SgmlTestCase):
             (list 5 17)
         """)
 
+    def test_length(self):
+        self.assertEqual(self.eval("(length nil)"), 0)
+        self.assertEqual(self.eval("(length t)"), 0)
+        self.assertEqual(self.eval("(length (list t))"), 1)
+        self.assertEqual(self.eval("(length (list t t))"), 2)
+        self.assertEqual(self.eval("(length (list t t t))"), 3)
+
     def test_and(self):
         self.assertBothEval("(and t)", "t")
         self.assertBothEval("(and nil t)", "nil")
@@ -81,10 +90,10 @@ class TestStdlib(tests.SgmlTestCase):
                 (let ((f (lambda (x y) (/ x y))))
                   (and t (f 1 0) nil))
             """)
-        self.assertRaises(ZeroDivisionError, f)
+        self.assertRaises(sgml.rt.error.RuntimeException, f)
 
         def g():
             self.eval("""
                 (and t (/ 1 0) nil)
             """)
-        self.assertRaises(ZeroDivisionError, g)
+        self.assertRaises(sgml.rt.error.RuntimeException, g)

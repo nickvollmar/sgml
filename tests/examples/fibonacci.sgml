@@ -1,6 +1,14 @@
-(define fibonacci
+#_(define fibonacci
   (label fib (lambda (n)
     (cond ((< n 2) n)
           (t (+ (fib (- n 2)) (fib (- n 1))))))))
 
-(print (fibonacci 21))
+#_(defn fibonacci (n)
+  (if (< n 2) n
+    (+ (fibonacci (- n 2)) (fibonacci (- n 1)))))
+
+(defn fibonacci (n)
+  (cond ((< n 2) n)
+         (t (+ (fibonacci (- n 2)) (fibonacci (- n 1))))))
+
+(print "should be 10946:" (fibonacci 21))

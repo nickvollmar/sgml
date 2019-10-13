@@ -22,6 +22,7 @@ eliminators, elimination rules
 computation rule
 	how an eliminator acts on a constructor
 	TODO: could this be considered part of elimination? it feels like we are kind of specifying "what elimination actually does"
+	-- I don't actually think it can. An eliminator can be used when you "don't know the impl" (e.g. given `f: A->B` and `a: A` you can get `(f a): B` without knowing what `f` is.
 	function type has beta-reduction: (\x.E)(a) === substitution of `a` for `x` in `E`
 (optional) uniqueness principle
 	uniqueness of maps into or out of the type
@@ -29,6 +30,9 @@ computation rule
 
 Pi-Types
 Given a type A : U and a family B : A -> U, we can construct the type of dependent functions (x : A) => B(x)
+
+--
+The following text was brainstorming about notation I guess
 
 (x: A) => (\x.Int) === x -> Int
 
@@ -63,3 +67,12 @@ pr2 := rec[A*B](B, \a.\b.b)
 
 swap: Pi[A,B,C: U] (A=>B=>C)=>(B=>A=>C)
 swap: Pi[A: U] Pi[B: U] Pi[C: U] (A=>B=>C)=>(B=>A=>C)
+
+func swap(A type, B type, C type, f func(A, B) C) func(B, A) C {
+	return func(b B, a A) { return f(a, b) }
+}
+
+\:Int.\:Int.:Point
+
+All type names must start with a colon; identifiers cannot contain them.
+Hence `identifier:type`, or `:type` in a function/type signature where the identifier doesn't matter

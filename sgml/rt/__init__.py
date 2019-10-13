@@ -4,6 +4,7 @@ import sys
 
 import sgml.interpreter
 import sgml.reader
+import sgml.rt.error
 from sgml.rt.symbol import Symbol
 from sgml.rt.environment import Environment
 from sgml.rt.error import bail
@@ -132,7 +133,10 @@ def is_primitive_function(fn):
 
 
 def apply_primitive_function(form: PrimitiveFunction, arguments, env):
-    return form.f(arguments, env)
+    try:
+        return form.f(arguments, env)
+    except Exception as e:
+        raise sgml.rt.error.RuntimeException(e)
 
 
 def operative(parameters, dynamic_env, body, static_env):
