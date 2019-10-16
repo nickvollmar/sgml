@@ -6,9 +6,6 @@ class Environment:
         self.env = env
         self.parent = parent
 
-    def __str__(self):
-        return "Environment(" + str(self.env) + ")"
-
     def child_scope(self):
         return Environment(env={}, parent=self)
 

@@ -263,6 +263,10 @@ def base_env():
 
 
 def debug(form) -> str:
+    if is_true(form):
+        return 't'
+    if is_null(form):
+        return 'nil'
     if is_symbol(form):
         return form.text
     if is_atom(form):
@@ -272,3 +276,10 @@ def debug(form) -> str:
         + ' '.join(debug(f) for f in iter_elements(form))
         + ')'
     )
+
+
+def debug_environment(e: Environment):
+    for sym, val in e.env.items():
+        print('{}: {}'.format(sym, debug(val)))
+    if e.parent:
+        debug_environment(e.parent)
