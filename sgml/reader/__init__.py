@@ -64,7 +64,7 @@ def _read_list(rt, macros, stream, ch):
             continue
         if ch == ')':
             if _DOTTED_LISTS_:
-                return rt._forms_to_list(forms, dotted)
+                return rt.forms_to_list(forms, dotted)
             return tuple(forms)
 
         if dotted and seen_improper_cdr:
@@ -150,7 +150,7 @@ def read_many(rt, macros: Macros, stream: Stream):
         form = _read(rt, macros, stream)
         if form is not None:
             forms.append(form)
-    return rt._forms_to_list(forms)
+    return rt.forms_to_list(forms)
 
 
 INITIAL_MACROS = Macros(

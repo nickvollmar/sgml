@@ -11,7 +11,7 @@ from sgml.rt.error import bail
 from sgml.rt.thunk import Applicative, Operative, PrimitiveFunction
 
 
-def _forms_to_list(forms, dotted=False):
+def forms_to_list(forms, dotted=False):
     result = forms.pop() if dotted else null()
     for head in reversed(forms):
         result = cons(head, result)

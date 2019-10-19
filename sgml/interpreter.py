@@ -1,54 +1,161 @@
 from __future__ import annotations
 
 
-_missing = object()
-
-
 class StackFrame:
     def __init__(self, env, parent):
         self.env = env
         self.parent = parent
 
     def frame_or_value(self, rt):
-        pass
+        raise NotImplementedError("subclass responsibility")
 
-    def with_value(self, value):
-        pass
+    def with_value(self, rt, value):
+        raise NotImplementedError("subclass responsibility")
 
 
 class RuntimeErrorFrame(StackFrame):
-    def __init__(self, message, env, parent):
+    def __init__(self, env, parent, message, form=None):
         super(RuntimeErrorFrame, self).__init__(env, parent)
         self.message = message
-
-
-# class LetStackFrame(StackFrame):
-#     def frame_or_value(self, rt):
-#         if not self.values:
-#             return EvalStackFrame(evaluend=self.evaluend[0], env=self.env, parent=self)
-#
-#         if len(self.values) % 2 and rt.is_truthy(self.values[-1]):
-#             return EvalStackFrame(evaluend=self.evaluend[len(self.values)], env=self.env, parent=self.parent)
+        self.details = form
 
 
 class CondStackFrame(StackFrame):
-    def __init__(self, pred_expr_list, env, parent):
+    def __init__(self, env, parent, branches):
         super(CondStackFrame, self).__init__(env, parent)
-        self.pred_expr_list = pred_expr_list
+        self.branches = branches
 
 
 class EvalStackFrame(StackFrame):
-    def __init__(self, evaluend, env, parent):
-        super(EvalStackFrame, self).__init__(env, parent)
-        self.form = evaluend
-        self.head = _missing
+    __missing = object()
 
-    def with_value(self, value):
-        if self.head is _missing:
-            result = EvalStackFrame(self.form, self.env, self.parent)
+    def __init__(self, env, parent, formlist):
+        super(EvalStackFrame, self).__init__(env, parent)
+        self.formlist = formlist
+        self.eval_value = self.__missing
+        self.env_value = self.__missing
+
+    def with_value(self, rt, value):
+        if self.eval_value is self.__missing:
+            result = EvalStackFrame(self.env, self.parent, formlist=rt.rest(self.formlist))
+            result.eval_value = value
+            return result
+        if self.env_value is self.__missing:
+            result = EvalStackFrame(self.env, self.parent, formlist=rt.rest(self.formlist))
+            result.eval_value = self.eval_value
+            result.env_value = value
+            return result
+        return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
+
+    def frame_or_value(self, rt):
+        if rt.is_null(self.formlist):
+            env = rt.base_env() if self.env_value is self.__missing else self.env_value
+            return DispatchStackFrame(self.eval_value, env, self.parent)
+        return DispatchStackFrame(rt.first(self.formlist), self.env, self)
+
+
+class DefineStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, tree, form):
+        super(DefineStackFrame, self).__init__(env, parent)
+        self.tree = tree
+        self.form = form
+        self.form_value = self.__missing
+
+    def with_value(self, rt, value):
+        if self.form_value is self.__missing:
+            result = DefineStackFrame(self.env, self.parent, self.tree, self.form)
+            result.form_value = value
+            return result
+        return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
+
+    def frame_or_value(self, rt):
+        if self.form_value is self.__missing:
+            return DispatchStackFrame(self.env, self, self.form)
+        if self.parent:
+            self.parent.env.add_match(rt, tree=self.tree, obj=self.form_value)
+            return self.parent
+
+
+class ApplicativeStackFrame(StackFrame):
+    def __init__(self, env, parent, func_value, num_args, args):
+        super(ApplicativeStackFrame, self).__init__(env, parent)
+        self.func_value = func_value
+        self.total_num_args = num_args
+        self.remaining_args = args
+        self.arg_values = []
+
+    def with_value(self, rt, value):
+        if len(self.arg_values) >= self.total_num_args:
+            return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
+        result = ApplicativeStackFrame(self.env, self.parent, self.func_value, self.total_num_args, self.remaining_args)
+        result.arg_values = self.arg_values + [value]
+        return result
+
+    def frame_or_value(self, rt):
+        if len(self.arg_values) < self.total_num_args:
+            eval_rest = ApplicativeStackFrame(self.env, self.parent, self.func_value, self.total_num_args, rt.rest(self.remaining_args))
+            return DispatchStackFrame(self.env, eval_rest, rt.first(self.remaining_args))
+
+        if len(self.arg_values) == self.total_num_args:
+            args_value = rt.forms_to_list(self.arg_values)
+
+            if rt.is_primitive_function(self.func_value):
+                return rt.apply_primitive_function(self.func_value, args_value, self.env)
+
+            return make_operative_stack_frame(rt, self.env, self.parent, self.func_value, args_value)
+
+        return RuntimeErrorFrame(self.env, self.parent, "too many arg_values somehow")
+
+
+def make_operative_stack_frame(rt, env, parent, func, args):
+    operative_env = rt.operative_static_env(func).child_scope()
+    operative_env.add_match(rt, tree=rt.operative_parameters(func), obj=args)
+    operative_env.add_match(rt, tree=rt.operative_dynamic_env_parameter(func), obj=env)
+    return OperativeStackFrame(env, parent, rt.operative_body(func), operative_env)
+
+
+class OperativeStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, operative_body, operative_env):
+        super(OperativeStackFrame, self).__init__(env, parent)
+        self.operative_body = operative_body
+        self.operative_env = operative_env
+        self.result_value = self.__missing
+
+    def with_value(self, rt, value):
+        result = OperativeStackFrame(self.env, self.parent, self.operative_body, self.operative_env)
+        result.result_value = value
+        return result
+
+    def frame_or_value(self, rt):
+        if rt.is_null(self.operative_body):
+            if self.result_value is self.__missing:
+                return RuntimeErrorFrame(self.env, self.parent, "empty operative somehow")
+            return self.result_value
+        eval_rest = OperativeStackFrame(self.env, self.parent, rt.rest(self.operative_body), self.operative_env)
+        return DispatchStackFrame(self.operative_env, eval_rest, rt.first(self.operative_body))
+
+
+class DispatchStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, form):
+        super(DispatchStackFrame, self).__init__(env, parent)
+        self.form = form
+        self.head = self.__missing
+
+    def with_value(self, rt, value):
+        if self.head is self.__missing:
+            result = DispatchStackFrame(
+                self.env, self.parent,
+                form=self.form,
+            )
             result.head = value
             return result
-        return RuntimeErrorFrame("with_value called twice", self.env, self.parent)
+        return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
 
     def frame_or_value(self, rt):
         if rt.is_symbol(self.form):
@@ -57,13 +164,36 @@ class EvalStackFrame(StackFrame):
             return self.form
 
         # it's a compound form
-        if self.head is _missing:
-            return EvalStackFrame(rt.car(self.form), env=self.env, parent=self)
+        if self.head is self.__missing:
+            # recur to get the first value
+            return DispatchStackFrame(self.env, self, form=rt.first(self.form))
 
         if self.head is rt.IGNORE:
             return rt.IGNORE
         if self.head is rt.QUOTE:
             return rt.second(self.form)
+        if self.head is rt.MACRO:
+            # (macro (x y z) (...))
+            # from the Kernel concept "vau"
+            parameters = rt.second(self.form)
+            env_formal = rt.third(self.form)
+            body = rt.rest(rt.rest(rt.rest(self.form)))
+            return rt.operative(parameters, env_formal, body, self.env.child_scope())
+
+        if self.head is rt.COND:
+            return CondStackFrame(self.env, self.parent, branches=rt.rest(self.form))
+        if self.head is rt.EVAL:
+            if rt.length(self.form) not in (2, 3):
+                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to eval", self.form)
+            return EvalStackFrame(self.env, self.parent, formlist=rt.rest(self.form))
+        if self.head is rt.DEFINE:
+            if rt.length(self.form) != 3:
+                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to define", self.form)
+            return DefineStackFrame(self.env, self.parent, tree=rt.second(self.form), form=rt.third(self.form))
+        if rt.is_applicative(self.head):
+            args = rt.rest(self.form)
+            return ApplicativeStackFrame(self.env, self.parent, func_value=self.head, num_args=rt.length(args), args=args)
+        return make_operative_stack_frame(rt, self.env, self.parent, func=self.head, args=rt.rest(self.form))
 
 
 def apply(rt, function, arguments, env):
