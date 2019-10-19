@@ -1,3 +1,71 @@
+from __future__ import annotations
+
+
+_missing = object()
+
+
+class StackFrame:
+    def __init__(self, env, parent):
+        self.env = env
+        self.parent = parent
+
+    def frame_or_value(self, rt):
+        pass
+
+    def with_value(self, value):
+        pass
+
+
+class RuntimeErrorFrame(StackFrame):
+    def __init__(self, message, env, parent):
+        super(RuntimeErrorFrame, self).__init__(env, parent)
+        self.message = message
+
+
+# class LetStackFrame(StackFrame):
+#     def frame_or_value(self, rt):
+#         if not self.values:
+#             return EvalStackFrame(evaluend=self.evaluend[0], env=self.env, parent=self)
+#
+#         if len(self.values) % 2 and rt.is_truthy(self.values[-1]):
+#             return EvalStackFrame(evaluend=self.evaluend[len(self.values)], env=self.env, parent=self.parent)
+
+
+class CondStackFrame(StackFrame):
+    def __init__(self, pred_expr_list, env, parent):
+        super(CondStackFrame, self).__init__(env, parent)
+        self.pred_expr_list = pred_expr_list
+
+
+class EvalStackFrame(StackFrame):
+    def __init__(self, evaluend, env, parent):
+        super(EvalStackFrame, self).__init__(env, parent)
+        self.form = evaluend
+        self.head = _missing
+
+    def with_value(self, value):
+        if self.head is _missing:
+            result = EvalStackFrame(self.form, self.env, self.parent)
+            result.head = value
+            return result
+        return RuntimeErrorFrame("with_value called twice", self.env, self.parent)
+
+    def frame_or_value(self, rt):
+        if rt.is_symbol(self.form):
+            return self.env.get(rt, self.form)
+        if rt.is_atom(self.form):
+            return self.form
+
+        # it's a compound form
+        if self.head is _missing:
+            return EvalStackFrame(rt.car(self.form), env=self.env, parent=self)
+
+        if self.head is rt.IGNORE:
+            return rt.IGNORE
+        if self.head is rt.QUOTE:
+            return rt.second(self.form)
+
+
 def apply(rt, function, arguments, env):
     if rt.is_primitive_function(function):
         return rt.apply_primitive_function(function, arguments, env)

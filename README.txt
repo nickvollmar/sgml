@@ -12,6 +12,26 @@ ftp://ftp.cs.wpi.edu/pub/techreports/pdf/05-07.pdf
 
 ---
 
-A "plain old X function" (here, X=Python) is inherently applicative, so no
-continuation can be invoked by it -- it will either return control to the
-immediately surrounding computation, or abort the program.
+Stack Frames
+Each special form gets its own type of stack frame with an immutable
+"evaluend" (code to be evaluated) and mutable "values list." Each step of
+evaluation ends with the stack frame returning either itself or another stack
+frame that it "becomes". Descendant stack frames have parent=self; "tail
+calls" have parent=self.parent. To return a value up the stack, mutate and
+return self.parent.
+
+We can't really know what type of stack frame to use until the head is
+evaluated. So every combiner starts as an "unknown combiner" frame type. After
+it gets its first value, it does a dispatch and returns an appropriate frame
+type with same evaluend and empty values list.
+
+Broadly speaking, each other frame type works iteratively through its
+evaluend. "Let" for example -- index of "next" pred/result pair. if value list
+is empty, return child stack frame to evaluate next predicate. If value list
+is nonempty and first element truthy, return tail call to evaluate next
+result. So we only actually need one element of value list I guess, at least
+for "Let". (Maybe also dispatch on frame type for "receive value"? Or maybe we
+don't need that either?)
+
+Eval stack frame ultimately returns an "unknown" frame type with
+evaluend=self.values_list!! Ha!!!
