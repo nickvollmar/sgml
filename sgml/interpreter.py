@@ -6,24 +6,53 @@ class StackFrame:
         self.env = env
         self.parent = parent
 
-    def frame_or_value(self, rt):
+    def with_value(self, rt, value):
         raise NotImplementedError("subclass responsibility")
 
-    def with_value(self, rt, value):
+    def frame_or_value(self, rt):
         raise NotImplementedError("subclass responsibility")
 
 
 class RuntimeErrorFrame(StackFrame):
-    def __init__(self, env, parent, message, form=None):
+    def __init__(self, env, parent, message, detail=None):
         super(RuntimeErrorFrame, self).__init__(env, parent)
         self.message = message
-        self.details = form
+        self.detail = detail
+
+    def __str__(self):
+        if self.detail is not None:
+            return "{}: {}".format(self.message, self.detail)
+        return self.message
+
+    def with_value(self, rt, value):
+        return self
+
+    def frame_or_value(self, rt):
+        return self
 
 
 class CondStackFrame(StackFrame):
+    __missing = object()
+
     def __init__(self, env, parent, branches):
         super(CondStackFrame, self).__init__(env, parent)
         self.branches = branches
+        self.last_predicate_value = self.__missing
+
+    def with_value(self, rt, value):
+        result = CondStackFrame(self.env, self.parent, self.branches)
+        result.last_predicate_value = value
+        return result
+
+    def frame_or_value(self, rt):
+        if self.last_predicate_value is self.__missing:
+            if rt.is_null(self.branches):
+                return RuntimeErrorFrame(self.env, self.parent, "no matches in cond")
+            return DispatchStackFrame(self.env, self, rt.first(self.branches))
+        if rt.is_truthy(self.last_predicate_value):
+            return DispatchStackFrame(self.env, self.parent, rt.second(self.branches))
+        return DispatchStackFrame(self.env, self.parent, rt.rest(rt.rest(self.branches)))
+
 
 
 class EvalStackFrame(StackFrame):
@@ -73,40 +102,32 @@ class DefineStackFrame(StackFrame):
     def frame_or_value(self, rt):
         if self.form_value is self.__missing:
             return DispatchStackFrame(self.env, self, self.form)
-        if self.parent:
-            self.parent.env.add_match(rt, tree=self.tree, obj=self.form_value)
-            return self.parent
+        self.env.add_match(rt, tree=self.tree, obj=self.form_value)
+        return self.parent
 
 
 class ApplicativeStackFrame(StackFrame):
-    def __init__(self, env, parent, func_value, num_args, args):
+    def __init__(self, env, parent, func_value, args):
         super(ApplicativeStackFrame, self).__init__(env, parent)
         self.func_value = func_value
-        self.total_num_args = num_args
         self.remaining_args = args
         self.arg_values = []
 
     def with_value(self, rt, value):
-        if len(self.arg_values) >= self.total_num_args:
-            return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
-        result = ApplicativeStackFrame(self.env, self.parent, self.func_value, self.total_num_args, self.remaining_args)
+        result = ApplicativeStackFrame(self.env, self.parent, self.func_value, self.remaining_args)
         result.arg_values = self.arg_values + [value]
         return result
 
     def frame_or_value(self, rt):
-        if len(self.arg_values) < self.total_num_args:
-            eval_rest = ApplicativeStackFrame(self.env, self.parent, self.func_value, self.total_num_args, rt.rest(self.remaining_args))
-            return DispatchStackFrame(self.env, eval_rest, rt.first(self.remaining_args))
-
-        if len(self.arg_values) == self.total_num_args:
-            args_value = rt.forms_to_list(self.arg_values)
-
+        if rt.is_null(self.remaining_args):
+            args = rt.forms_to_list(self.arg_values)
             if rt.is_primitive_function(self.func_value):
-                return rt.apply_primitive_function(self.func_value, args_value, self.env)
+                return rt.apply_primitive_function(self.func_value, args, self.env)
+            return make_operative_stack_frame(rt, self.env, self.parent, self.func_value, args)
 
-            return make_operative_stack_frame(rt, self.env, self.parent, self.func_value, args_value)
-
-        return RuntimeErrorFrame(self.env, self.parent, "too many arg_values somehow")
+        eval_rest = ApplicativeStackFrame(self.env, self.parent, self.func_value, rt.rest(self.remaining_args))
+        eval_rest.arg_values = self.arg_values
+        return DispatchStackFrame(self.env, eval_rest, rt.first(self.remaining_args))
 
 
 def make_operative_stack_frame(rt, env, parent, func, args):
@@ -136,6 +157,7 @@ class OperativeStackFrame(StackFrame):
                 return RuntimeErrorFrame(self.env, self.parent, "empty operative somehow")
             return self.result_value
         eval_rest = OperativeStackFrame(self.env, self.parent, rt.rest(self.operative_body), self.operative_env)
+        eval_rest.result_value = self.result_value
         return DispatchStackFrame(self.operative_env, eval_rest, rt.first(self.operative_body))
 
 
@@ -159,7 +181,11 @@ class DispatchStackFrame(StackFrame):
 
     def frame_or_value(self, rt):
         if rt.is_symbol(self.form):
-            return self.env.get(rt, self.form)
+            try:
+                return self.env.get(rt, self.form)
+            except KeyError:
+                return RuntimeErrorFrame(self.env, self.parent, "Unbound variable", self.form)
+
         if rt.is_atom(self.form):
             return self.form
 
@@ -192,111 +218,28 @@ class DispatchStackFrame(StackFrame):
             return DefineStackFrame(self.env, self.parent, tree=rt.second(self.form), form=rt.third(self.form))
         if rt.is_applicative(self.head):
             args = rt.rest(self.form)
-            return ApplicativeStackFrame(self.env, self.parent, func_value=self.head, num_args=rt.length(args), args=args)
-        return make_operative_stack_frame(rt, self.env, self.parent, func=self.head, args=rt.rest(self.form))
-
-
-def apply(rt, function, arguments, env):
-    if rt.is_primitive_function(function):
-        return rt.apply_primitive_function(function, arguments, env)
-
-    if rt.is_operative(function):
-        parameters = rt.operative_parameters(function)
-        body = rt.operative_body(function)
-        static_env = rt.operative_static_env(function).child_scope()
-        env_param = rt.operative_dynamic_env_parameter(function)
-        static_env.add_match(rt, tree=parameters, obj=arguments)
-        static_env.add_match(rt, tree=env_param, obj=env)
-        result = None
-        for form in rt.iter_elements(body):
-            result = evaluate(rt, form, static_env)
-        return result
-
-    if rt.is_symbol(function):
-        # Is this possible?
-        f = evaluate(rt, function, env)
-        return apply(rt, f, arguments, env)
-
-    raise ValueError("apply() called on non-applicable object: {}".format(function))
+            return ApplicativeStackFrame(self.env, self.parent, func_value=self.head, args=args)
+        if rt.is_operative(self.head):
+            return make_operative_stack_frame(rt, self.env, self.parent, func=self.head, args=rt.rest(self.form))
+        return RuntimeErrorFrame(self.env, self.parent, "non-applicable object", self.head)
 
 
 def evaluate(rt, code, env):
-    if rt.is_symbol(code):
-        return env.get(rt, code)
-    if rt.is_atom(code):
-        return code
+    stack_top: StackFrame = DispatchStackFrame(env, parent=None, form=code)
+    while True:
+        try:
+            frame_or_value = stack_top.frame_or_value(rt)
+            if isinstance(frame_or_value, StackFrame):
+                # "push"
+                stack_top = frame_or_value
+            elif stack_top.parent is None:
+                return frame_or_value
+            else:
+                # "pop"
+                stack_top = stack_top.parent.with_value(rt, frame_or_value)
+        except Exception as e:
+            stack_top = RuntimeErrorFrame(env, stack_top, "Python error", e)
 
-    # it's a compound form
-    head = evaluate(rt, rt.first(code), env)
-
-    # *** Special forms ***
-    if head is rt.IGNORE:
-        return rt.IGNORE
-    if head is rt.QUOTE:
-        return rt.second(code)
-    if head is rt.COND:
-        for branch in rt.iter_elements(rt.rest(code)):
-            branch_scope = env.child_scope()
-            test = evaluate(rt, rt.first(branch), branch_scope)
-            if rt.is_truthy(test):
-                return evaluate(rt, rt.second(branch), branch_scope)
-        raise ValueError("No matching branches in `cond`: {}".format(code))
-    if head is rt.EVAL:
-        eval_code = evaluate(rt, rt.second(code), env)
-        if rt.length(code) >= 3:
-            eval_env = evaluate(rt, rt.third(code), env)
-        else:
-            eval_env = rt.base_env()
-        return evaluate(rt, eval_code, eval_env)
-    if head is rt.MACRO:
-        # (macro (x y z) (...))
-        # from the Kernel concept "vau"
-        parameters = rt.second(code)
-        env_formal = rt.third(code)
-        body = rt.rest(rt.rest(rt.rest(code)))
-        return rt.operative(parameters, env_formal, body, env.child_scope())
-    if head is rt.LABEL:
-        # (label ff (lambda (x) (cond ...)))
-        name = rt.second(code)
-        label_env = env.child_scope()
-        body = evaluate(rt, rt.third(code), label_env)  # presumably captures label_env
-        label_env.add(rt, name, body)  # mutate label_env
-        return body
-    if head is rt.DEFINE:
-        symbol = rt.second(code)
-        body = rt.third(code)
-        env.add_match(rt, tree=symbol, obj=evaluate(rt, body, env))
-        # LISP 1.5 behavior: return a list of defined objects
-        return rt.cons(symbol, rt.null())
-    if head is rt.LET:
-        let_env = env.child_scope()
-        parameters = rt.second(code)
-        for binding in rt.iter_elements(parameters):
-            sym = rt.first(binding)
-            val = rt.second(binding)
-            let_env.add_match(rt, tree=sym, obj=evaluate(rt, val, let_env))
-        body = rt.third(code)
-        return evaluate(rt, body, let_env)
-
-    # *** Combinators ***
-    # Applicative: evaluate, then apply
-    if rt.is_applicative(head):
-        f = rt.unwrap(head)
-        args = eval_list(rt, rt.rest(code), env)
-        return apply(rt, f, args, env)
-
-    # Operative: apply directly
-    return apply(rt, head, rt.rest(code), env)
-
-
-def eval_list(rt, lst, env):
-    if rt.is_null(lst):
-        return lst
-    hd = evaluate(rt, rt.first(lst), env)
-    tl = eval_list(rt, rt.rest(lst), env)
-    return rt.cons(hd, tl)
-
-
-# TODO: what was this for?
-def eval_quote(rt, fn, x):
-    return apply(rt, fn, x, {})
+        if isinstance(stack_top, RuntimeErrorFrame):
+            # todo: try/catch
+            raise RuntimeError(stack_top)

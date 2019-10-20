@@ -251,13 +251,13 @@ def base_env():
         primitive.update(SPECIAL_FORMS)
         primitive.update(PRIMITIVE_FUNCTIONS)
         env = Environment(env=primitive, parent=None)
-        with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-            stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-            # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
-            module = sys.modules[__name__]
-            forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
-            for form in iter_elements(forms):
-                sgml.interpreter.evaluate(module, form, env)
+        # with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+        #     stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+        #     # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+        #     module = sys.modules[__name__]
+        #     forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+        #     for form in iter_elements(forms):
+        #         sgml.interpreter.evaluate(module, form, env)
         _cached_base_env = env
     return _cached_base_env.child_scope()
 

@@ -15,3 +15,6 @@ class PrimitiveFunction:
     def __init__(self, name, f):
         self.name = name
         self.f = f
+
+    def __str__(self):
+        return "<primitive function '{}'>".format(self.name)

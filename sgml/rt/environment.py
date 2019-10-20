@@ -13,17 +13,17 @@ class Environment:
         """
         a.k.a. `assoc` in the LISP 1.5 manual
         """
-        if not isinstance(symbol, Symbol):
-            rt.bail("internal error: lookup called on non-symbol {} ({})", symbol, type(symbol))
+        if not rt.is_symbol(symbol):
+            raise TypeError("get called with non-symbol {} ({})".format(symbol, type(symbol)))
         if symbol in self.env:
             return self.env[symbol]
         if self.parent is not None:
             return self.parent.get(rt, symbol)
-        rt.bail("Unbound variable: {}", symbol)
+        raise KeyError(symbol)
 
     def add(self, rt, symbol, form):
-        if not isinstance(symbol, Symbol):
-            rt.bail("internal error: add called with non-symbol {} ({})", symbol, type(symbol))
+        if not rt.is_symbol(symbol):
+            raise TypeError("add called with non-symbol {} ({})".format(symbol, type(symbol)))
         if symbol.text == "_":
             return
         self.env[symbol] = form
@@ -45,7 +45,7 @@ class Environment:
         if rt.is_null(tree) and rt.is_null(obj):
             return
         if rt.is_null(tree) or rt.is_null(obj):
-            rt.bail("arity error")
+            raise ValueError("arity error")
         # it's a pair
         self.add_match(rt, rt.first(tree), rt.first(obj))
         self.add_match(rt, rt.rest(tree), rt.rest(obj))

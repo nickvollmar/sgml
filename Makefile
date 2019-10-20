@@ -1,3 +1,5 @@
+current_dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 .PHONY: all
 all: test
 
@@ -7,18 +9,12 @@ dist:
 	python3 -m pip install --user --upgrade setuptools wheel
 	python3 setup.py sdist bdist_wheel
 
-venv := .virtualenv
+.PHONY: test
+test:
+	python3 -m unittest
 
-$(venv): $(venv)/bin/activate
-
-$(venv)/bin/activate: requirements.txt
-	test -d $(venv) || python3 -m venv $(venv)
-	. $(venv)/bin/activate && python -m pip install -Ur requirements.txt
-	touch $(venv)/bin/activate
-
-test: $(venv)
-	. $(venv)/bin/activate && python -m unittest
-
+.PHONY: clean
 clean:
-	rm -rf $(venv)
-	find -iname "*.pyc" -delete
+	find $(current_dir) \
+	  '(' '(' -type f -name '*.pyc' ')' -or '(' -type d -name __pycache__ ')' ')' \
+	  -delete
