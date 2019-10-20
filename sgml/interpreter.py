@@ -1,4 +1,6 @@
-from __future__ import annotations
+import sys
+
+_print_stack_trace = False
 
 
 class StackFrame:
@@ -14,10 +16,15 @@ class StackFrame:
 
 
 class RuntimeErrorFrame(StackFrame):
-    def __init__(self, env, parent, message, detail=None):
+    __missing = object()
+
+    def __init__(self, env, parent, message, detail=__missing):
         super(RuntimeErrorFrame, self).__init__(env, parent)
         self.message = message
         self.detail = detail
+
+    def has_detail(self):
+        return self.detail is not self.__missing
 
     def __str__(self):
         if self.detail is not None:
@@ -45,14 +52,16 @@ class CondStackFrame(StackFrame):
         return result
 
     def frame_or_value(self, rt):
-        if self.last_predicate_value is self.__missing:
-            if rt.is_null(self.branches):
-                return RuntimeErrorFrame(self.env, self.parent, "no matches in cond")
-            return DispatchStackFrame(self.env, self, rt.first(self.branches))
-        if rt.is_truthy(self.last_predicate_value):
-            return DispatchStackFrame(self.env, self.parent, rt.second(self.branches))
-        return DispatchStackFrame(self.env, self.parent, rt.rest(rt.rest(self.branches)))
+        if rt.is_null(self.branches):
+            return RuntimeErrorFrame(self.env, self.parent, "no matches in cond")
+        if rt.length(rt.first(self.branches)) != 2:
+            return RuntimeErrorFrame(self.env, self, "should be two elements in a cond-pair", rt.first(self.branches))
 
+        if self.last_predicate_value is self.__missing:
+            return DispatchStackFrame(self.env, self, rt.first(rt.first(self.branches)))
+        if rt.is_truthy(self.last_predicate_value):
+            return DispatchStackFrame(self.env, self.parent, rt.second(rt.first(self.branches)))
+        return CondStackFrame(self.env, self.parent, rt.rest(self.branches))
 
 
 class EvalStackFrame(StackFrame):
@@ -79,8 +88,8 @@ class EvalStackFrame(StackFrame):
     def frame_or_value(self, rt):
         if rt.is_null(self.formlist):
             env = rt.base_env() if self.env_value is self.__missing else self.env_value
-            return DispatchStackFrame(self.eval_value, env, self.parent)
-        return DispatchStackFrame(rt.first(self.formlist), self.env, self)
+            return DispatchStackFrame(env, self.parent, form=self.eval_value)
+        return DispatchStackFrame(self.env, self, form=rt.first(self.formlist))
 
 
 class DefineStackFrame(StackFrame):
@@ -97,13 +106,38 @@ class DefineStackFrame(StackFrame):
             result = DefineStackFrame(self.env, self.parent, self.tree, self.form)
             result.form_value = value
             return result
-        return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
+        return RuntimeErrorFrame(self.env, self, "with_value called too many times")
 
     def frame_or_value(self, rt):
         if self.form_value is self.__missing:
             return DispatchStackFrame(self.env, self, self.form)
         self.env.add_match(rt, tree=self.tree, obj=self.form_value)
         return self.parent
+
+
+class LetStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, bindings, body):
+        super(LetStackFrame, self).__init__(env.child_scope(), parent)
+        self.bindings = bindings
+        self.body = body
+        self.next_binding_value = self.__missing
+
+    def with_value(self, rt, value):
+        result = LetStackFrame(self.env, self.parent, self.bindings, self.body)
+        result.next_binding_value = value
+        return result
+
+    def frame_or_value(self, rt):
+        if rt.is_null(self.bindings):
+            return OperativeStackFrame(self.env, self.parent, self.body, self.env)
+        if self.next_binding_value is self.__missing:
+            if rt.length(rt.first(self.bindings)) != 2:
+                return RuntimeErrorFrame(self.env, self, "should be two elements in a let-binding", rt.first(self.bindings))
+            return DispatchStackFrame(self.env, self, form=rt.second(rt.first(self.bindings)))
+        self.env.add_match(rt, tree=rt.first(rt.first(self.bindings)), obj=self.next_binding_value)
+        return LetStackFrame(self.env, self.parent, rt.rest(self.bindings), self.body)
 
 
 class ApplicativeStackFrame(StackFrame):
@@ -121,9 +155,10 @@ class ApplicativeStackFrame(StackFrame):
     def frame_or_value(self, rt):
         if rt.is_null(self.remaining_args):
             args = rt.forms_to_list(self.arg_values)
-            if rt.is_primitive_function(self.func_value):
-                return rt.apply_primitive_function(self.func_value, args, self.env)
-            return make_operative_stack_frame(rt, self.env, self.parent, self.func_value, args)
+            func = rt.unwrap(self.func_value)
+            if rt.is_primitive_function(func):
+                return rt.apply_primitive_function(func, args, self.env)
+            return make_operative_stack_frame(rt, self.env, self.parent, func, args)
 
         eval_rest = ApplicativeStackFrame(self.env, self.parent, self.func_value, rt.rest(self.remaining_args))
         eval_rest.arg_values = self.arg_values
@@ -154,11 +189,12 @@ class OperativeStackFrame(StackFrame):
     def frame_or_value(self, rt):
         if rt.is_null(self.operative_body):
             if self.result_value is self.__missing:
-                return RuntimeErrorFrame(self.env, self.parent, "empty operative somehow")
+                return rt.IGNORE
             return self.result_value
         eval_rest = OperativeStackFrame(self.env, self.parent, rt.rest(self.operative_body), self.operative_env)
         eval_rest.result_value = self.result_value
         return DispatchStackFrame(self.operative_env, eval_rest, rt.first(self.operative_body))
+
 
 
 class DispatchStackFrame(StackFrame):
@@ -171,10 +207,7 @@ class DispatchStackFrame(StackFrame):
 
     def with_value(self, rt, value):
         if self.head is self.__missing:
-            result = DispatchStackFrame(
-                self.env, self.parent,
-                form=self.form,
-            )
+            result = DispatchStackFrame(self.env, self.parent, form=self.form)
             result.head = value
             return result
         return RuntimeErrorFrame(self.env, self.parent, "with_value called too many times")
@@ -208,6 +241,8 @@ class DispatchStackFrame(StackFrame):
 
         if self.head is rt.COND:
             return CondStackFrame(self.env, self.parent, branches=rt.rest(self.form))
+        if self.head is rt.LET:
+            return LetStackFrame(self.env, self.parent, bindings=rt.second(self.form), body=rt.rest(rt.rest(self.form)))
         if self.head is rt.EVAL:
             if rt.length(self.form) not in (2, 3):
                 return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to eval", self.form)
@@ -221,7 +256,16 @@ class DispatchStackFrame(StackFrame):
             return ApplicativeStackFrame(self.env, self.parent, func_value=self.head, args=args)
         if rt.is_operative(self.head):
             return make_operative_stack_frame(rt, self.env, self.parent, func=self.head, args=rt.rest(self.form))
-        return RuntimeErrorFrame(self.env, self.parent, "non-applicable object", self.head)
+
+        return RuntimeErrorFrame(self.env, self.parent, "non-applicable object", self.form)
+
+
+def stacktrace(stack_frame):
+    trace = []
+    while stack_frame is not None:
+        trace.append(stack_frame)
+        stack_frame = stack_frame.parent
+    return list(reversed(trace))
 
 
 def evaluate(rt, code, env):
@@ -242,4 +286,10 @@ def evaluate(rt, code, env):
 
         if isinstance(stack_top, RuntimeErrorFrame):
             # todo: try/catch
-            raise RuntimeError(stack_top)
+            if _print_stack_trace:
+                print("Stack:", file=sys.stderr)
+                for frame in stacktrace(stack_top):
+                    print("    {}".format(frame), file=sys.stderr)
+                if stack_top.has_detail():
+                    print("Details:", rt.as_string(stack_top.detail), file=sys.stderr)
+            raise RuntimeError("Exception evaluating {}: {}".format(rt.as_string(code), stack_top))

@@ -1,14 +1,13 @@
 import functools
+import operator as op
 import os
 import sys
 
 import sgml.interpreter
 import sgml.reader
-import sgml.rt.error
-from sgml.rt.symbol import Symbol
-from sgml.rt.environment import Environment
-from sgml.rt.error import bail
-from sgml.rt.thunk import Applicative, Operative, PrimitiveFunction
+from sgml.symbol import Symbol
+from sgml.environment import Environment
+from sgml.thunk import Applicative, Operative, PrimitiveFunction
 
 
 def forms_to_list(forms, dotted=False):
@@ -103,17 +102,19 @@ def length(form):
     return result if is_null(form) else result + 1
 
 
-def as_string(form):
-    if is_atom(form):
-        if is_true(form):
+def as_string(value):
+    if is_atom(value):
+        if is_true(value):
             return 't'
-        if is_null(form):
+        if is_null(value):
             return 'nil'
-        return str(form)
+        if is_operative(value):
+            return "<operative body=" + as_string(operative_body(value)) + ">"
+        return str(value)
 
     result = '('
-    result += as_string(first(form))
-    cur = rest(form)
+    result += as_string(first(value))
+    cur = rest(value)
     while not is_atom(cur):
         result += ' ' + as_string(first(cur))
         cur = rest(cur)
@@ -123,20 +124,12 @@ def as_string(form):
     return result
 
 
-def _print(args, env):
-    strs = [as_string(arg) for arg in iter_elements(args)]
-    print(*strs)
-
-
 def is_primitive_function(fn):
     return isinstance(fn, PrimitiveFunction)
 
 
 def apply_primitive_function(form: PrimitiveFunction, arguments, env):
-    try:
-        return form.f(arguments, env)
-    except Exception as e:
-        raise sgml.rt.error.RuntimeException(e)
+    return form.f(arguments, env)
 
 
 def operative(parameters, dynamic_env, body, static_env):
@@ -167,8 +160,12 @@ def is_applicative(code):
     return isinstance(code, (Applicative, PrimitiveFunction))
 
 
-def wrap(f: Operative):
-    return Applicative(f)
+def wrap(f):
+    if is_operative(f):
+        return Applicative(f)
+    if is_applicative(f):
+        return f
+    raise AssertionError("wrap called on non-operative and non-applicative {}".format(as_string(f)))
 
 
 def unwrap(a):
@@ -176,8 +173,16 @@ def unwrap(a):
         return a.combiner
     if isinstance(a, PrimitiveFunction):
         return a
-    raise AssertionError("unwrap called on non-applicative {}".format(a))
+    raise AssertionError("unwrap called on non-applicative {}".format(as_string(a)))
 
+
+def _wrap(args, env):
+    return wrap(first(args))
+
+
+def _print(args, env):
+    strs = [as_string(arg) for arg in iter_elements(args)]
+    print(*strs)
 
 PRIMITIVE_FUNCTIONS = {
     symbol(name): PrimitiveFunction(name, func)
@@ -191,14 +196,13 @@ PRIMITIVE_FUNCTIONS = {
         ("eq", lambda arguments, env: eq(first(arguments), second(arguments))),
         ("null", lambda arguments, env: is_null(first(arguments))),
         ("list", lambda arguments, env: arguments),
-        ("+", lambda arguments, env: functools.reduce(lambda x, y: x + y, iter_elements(arguments), 0)),
-        ("-", lambda arguments, env: functools.reduce(lambda x, y: x - y, iter_elements(arguments))),
-        ("*", lambda arguments, env: functools.reduce(lambda x, y: x * y, iter_elements(arguments), 1)),
-        ("/", lambda arguments, env: functools.reduce(lambda x, y: x / y, iter_elements(arguments))),
+        ("+", lambda arguments, env: functools.reduce(op.add, iter_elements(arguments), 0)),
+        ("-", lambda arguments, env: functools.reduce(op.sub, iter_elements(arguments))),
+        ("*", lambda arguments, env: functools.reduce(op.mul, iter_elements(arguments), 1)),
+        ("/", lambda arguments, env: functools.reduce(op.truediv, iter_elements(arguments))),
         ("<", lambda arguments, env: first(arguments) < second(arguments)),
         ("print", _print),
-        # TODO: is this how to do this?
-        ("wrap", lambda arguments, env: wrap(first(arguments))),
+        ("wrap", _wrap),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
         ("make-environment", lambda _, __: base_env()),
         ("get-current-environment", lambda _, env: env),
@@ -218,7 +222,7 @@ QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
 EVAL = SpecialForm("eval")
 MACRO = SpecialForm("macro")
-LABEL = SpecialForm("label")
+# LABEL = SpecialForm("label")
 DEFINE = SpecialForm("define")
 LET = SpecialForm("let")  # TODO: define as macro when am more comfortable
 IGNORE = SpecialForm("_")
@@ -226,15 +230,15 @@ IGNORE = SpecialForm("_")
 SPECIAL_FORMS = {
     symbol(form.name): form
     for form in [
-        QUOTE,
-        COND,
-        EVAL,
-        MACRO,
-        LABEL,
-        DEFINE,
-        LET,
-        IGNORE,
-    ]
+    QUOTE,
+    COND,
+    EVAL,
+    MACRO,
+    # LABEL,
+    DEFINE,
+    LET,
+    IGNORE,
+]
 }
 
 
@@ -251,13 +255,13 @@ def base_env():
         primitive.update(SPECIAL_FORMS)
         primitive.update(PRIMITIVE_FUNCTIONS)
         env = Environment(env=primitive, parent=None)
-        # with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-        #     stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-        #     # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
-        #     module = sys.modules[__name__]
-        #     forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
-        #     for form in iter_elements(forms):
-        #         sgml.interpreter.evaluate(module, form, env)
+        with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+            stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+            # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+            module = sys.modules[__name__]
+            forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+            for form in iter_elements(forms):
+                sgml.interpreter.evaluate(module, form, env)
         _cached_base_env = env
     return _cached_base_env.child_scope()
 
@@ -272,9 +276,9 @@ def debug(form) -> str:
     if is_atom(form):
         return repr(form)
     return (
-        '('
-        + ' '.join(debug(f) for f in iter_elements(form))
-        + ')'
+            '('
+            + ' '.join(debug(f) for f in iter_elements(form))
+            + ')'
     )
 
 

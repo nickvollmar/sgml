@@ -1,7 +1,5 @@
 import tests
 
-import sgml.rt.error
-
 
 class TestStdlib(tests.SgmlTestCase):
     def test_subst(self):
@@ -90,10 +88,10 @@ class TestStdlib(tests.SgmlTestCase):
                 (let ((f (lambda (x y) (/ x y))))
                   (and t (f 1 0) nil))
             """)
-        self.assertRaises(sgml.rt.error.RuntimeException, f)
+        self.assertRaises(Exception, f)
 
         def g():
             self.eval("""
                 (and t (/ 1 0) nil)
             """)
-        self.assertRaises(sgml.rt.error.RuntimeException, g)
+        self.assertRaises(Exception, g)

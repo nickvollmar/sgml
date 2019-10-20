@@ -1,4 +1,4 @@
-(define pairlis
+#_(define pairlis
         (label pairlis (lambda (x y a)
           (cond ((null x) a)
                 (t (cons (cons (car x) (car y))

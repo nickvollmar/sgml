@@ -43,6 +43,7 @@ def main(args):
             stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
             forms = sgml.reader.read_many(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
             env = sgml.rt.base_env()
+            sgml.interpreter._debug = True
             for form in sgml.rt.iter_elements(forms):
                 sgml.interpreter.evaluate(sgml.rt, form, env)
         return 0
@@ -50,4 +51,5 @@ def main(args):
 
 
 if __name__ == "__main__":
+    sgml.interpreter._print_stack_trace = True
     sys.exit(main(sys.argv))

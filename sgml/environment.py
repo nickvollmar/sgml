@@ -1,6 +1,3 @@
-from sgml.rt.symbol import Symbol
-
-
 class Environment:
     def __init__(self, env: dict, parent):
         self.env = env
