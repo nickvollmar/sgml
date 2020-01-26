@@ -27,7 +27,7 @@ class RuntimeErrorFrame(StackFrame):
         return self.detail is not self.__missing
 
     def __str__(self):
-        if self.detail is not None:
+        if self.has_detail():
             return "{}: {}".format(self.message, self.detail)
         return self.message
 
