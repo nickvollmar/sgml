@@ -201,6 +201,7 @@ PRIMITIVE_FUNCTIONS = {
         ("*", lambda arguments, env: functools.reduce(op.mul, iter_elements(arguments), 1)),
         ("/", lambda arguments, env: functools.reduce(op.truediv, iter_elements(arguments))),
         ("<", lambda arguments, env: first(arguments) < second(arguments)),
+        (">", lambda arguments, env: first(arguments) > second(arguments)),
         ("print", _print),
         ("wrap", _wrap),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),

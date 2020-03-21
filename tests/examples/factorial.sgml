@@ -1,0 +1,15 @@
+
+#_(defn factorial (n)
+  (let ((helper (lambda (n a)
+                 (cond ((> n 0) (helper (- n 1) (* n a)))
+                       (t a)))))
+    (helper n 1)))
+
+(defn factorial-helper (n a)
+  (cond ((> n 0) (factorial-helper (- n 1) (* n a)))
+         (t a)))
+
+(defn factorial (n)
+  (factorial-helper n 1))
+
+(print "should be 3628800:" (factorial 10))

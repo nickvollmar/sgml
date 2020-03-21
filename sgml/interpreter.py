@@ -1,6 +1,6 @@
 import sys
 
-_print_stack_trace = False
+_print_stack_trace = True
 
 
 class StackFrame:
@@ -28,8 +28,8 @@ class RuntimeErrorFrame(StackFrame):
 
     def __str__(self):
         if self.has_detail():
-            return "{}: {}".format(self.message, self.detail)
-        return self.message
+            return "RuntimeErrorFrame: {}: {}".format(self.message, self.detail)
+        return "RuntimeErrorFrame: {}".format(self.message)
 
     def with_value(self, rt, value):
         return self
@@ -63,6 +63,8 @@ class CondStackFrame(StackFrame):
             return DispatchStackFrame(self.env, self.parent, rt.second(rt.first(self.branches)))
         return CondStackFrame(self.env, self.parent, rt.rest(self.branches))
 
+    def __str__(self):
+        return "{} branches={}".format(self.__class__.__name__, self.branches)
 
 class EvalStackFrame(StackFrame):
     __missing = object()
@@ -91,6 +93,8 @@ class EvalStackFrame(StackFrame):
             return DispatchStackFrame(env, self.parent, form=self.eval_value)
         return DispatchStackFrame(self.env, self, form=rt.first(self.formlist))
 
+    def __str__(self):
+        return "{} formlist={}".format(self.__class__.__name__, self.formlist)
 
 class DefineStackFrame(StackFrame):
     __missing = object()
@@ -113,6 +117,9 @@ class DefineStackFrame(StackFrame):
             return DispatchStackFrame(self.env, self, self.form)
         self.env.add_match(rt, tree=self.tree, obj=self.form_value)
         return self.parent
+
+    def __str__(self):
+        return "{} tree={} form={}".format(self.__class__.__name__, self.tree, self.form)
 
 
 class LetStackFrame(StackFrame):
@@ -139,6 +146,9 @@ class LetStackFrame(StackFrame):
         self.env.add_match(rt, tree=rt.first(rt.first(self.bindings)), obj=self.next_binding_value)
         return LetStackFrame(self.env, self.parent, rt.rest(self.bindings), self.body)
 
+    def __str__(self):
+        return "{} bindings={} body={}".format(self.__class__.__name__, self.bindings, self.body)
+
 
 class ApplicativeStackFrame(StackFrame):
     def __init__(self, env, parent, func_value, args):
@@ -164,6 +174,8 @@ class ApplicativeStackFrame(StackFrame):
         eval_rest.arg_values = self.arg_values
         return DispatchStackFrame(self.env, eval_rest, rt.first(self.remaining_args))
 
+    def __str__(self):
+        return "{} func_value={}".format(self.__class__.__name__, self.func_value)
 
 def make_operative_stack_frame(rt, env, parent, func, args):
     operative_env = rt.operative_static_env(func).child_scope()
@@ -194,6 +206,9 @@ class OperativeStackFrame(StackFrame):
         eval_rest = OperativeStackFrame(self.env, self.parent, rt.rest(self.operative_body), self.operative_env)
         eval_rest.result_value = self.result_value
         return DispatchStackFrame(self.operative_env, eval_rest, rt.first(self.operative_body))
+
+    def __str__(self):
+        return "{} operative_body={}".format(self.__class__.__name__, self.operative_body)
 
 
 
@@ -258,6 +273,9 @@ class DispatchStackFrame(StackFrame):
             return make_operative_stack_frame(rt, self.env, self.parent, func=self.head, args=rt.rest(self.form))
 
         return RuntimeErrorFrame(self.env, self.parent, "non-applicable object", self.form)
+
+    def __str__(self):
+        return "{} form={}".format(self.__class__.__name__, self.form)
 
 
 def stacktrace(stack_frame):

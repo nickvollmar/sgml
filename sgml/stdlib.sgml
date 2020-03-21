@@ -61,3 +61,10 @@
           ((null (cdr x)) (eval (car x) e))
           ((eval (car x) e) (apply (wrap and) (cdr x) e))
           (t nil))))
+
+(define begin
+  (macro x e
+    (cond ((null x) _)
+          ((null (cdr x)) (eval (car x) e))
+          (t (let ((_ (eval (car x) e)))
+               (apply (wrap begin) (cdr x) e))))))

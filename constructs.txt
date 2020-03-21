@@ -52,3 +52,14 @@ These `type` declarations encode the following information:
 Interestingly, no syntax analogous to 'a * 'b * 'c for "anonymous" unions.
 (in intersection case, ind. elements can be referred to by indices. Not sure if
 obvious analog exists in union case; at least, an analog that makes sense.)
+
+===
+
+In Lisp-syntax-land it makes "sense" for dependently-typed things to be in lists (as opposed to Clojure vectors or similar). For (a b c) desugars to (a . (b . (c . ()))), and intuitively you parse the `a` part before going on to the next list elements. So much for that, then.
+
+Type constructor
+(declare struct (func (map symbol type) type))
+(defn struct (args :(map symbol type)) ...)
+Creates a finite product type whose domain is (keys args). The values for each of the domain's elements are given in (values args), as might be expected.
+(def point (struct {x int y int}))
+Interesting challenge: embed dependent fields, like Pascal's `case of` stuff.
