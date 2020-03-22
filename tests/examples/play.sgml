@@ -17,8 +17,6 @@
 (print (f (lambda (x) x))) ; displays 3
 (print (call/cc f)) ; displays 2
 
-; This part doesn't work, I think `define` is goofed up (among other things)
-#_(
 ;; [LISTOF X] -> ( -> X u 'you-fell-off-the-end)
 (defn generate-one-element-at-a-time (lst)
   ;; Both internal functions are closures over lst
@@ -34,7 +32,7 @@
                (define return (call/cc
                               (lambda (resume-here)
                                 ;; Grab the current continuation
-                               (define control-state resume-here)
+                               (set! control-state resume-here)
                                (return element))))) ;; (return element) evaluates to next return
      lst)
     (return "you-fell-off-the-end"))
@@ -54,7 +52,6 @@
 (print (generate-digit)) ;; 1
 (print (generate-digit)) ;; 2
 (print (generate-digit)) ;; you-fell-off-the-end
-)
 
 ; adapted from Scheme spec
 ; https://schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_idx_566

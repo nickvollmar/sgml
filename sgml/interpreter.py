@@ -99,15 +99,16 @@ class EvalStackFrame(StackFrame):
 class DefineStackFrame(StackFrame):
     __missing = object()
 
-    def __init__(self, env, parent, tree, form):
+    def __init__(self, env, parent, head, tree, form):
         super(DefineStackFrame, self).__init__(env, parent)
+        self.head = head
         self.tree = tree
         self.form = form
         self.form_value = self.__missing
 
     def with_value(self, rt, value):
         if self.form_value is self.__missing:
-            result = DefineStackFrame(self.env, self.parent, self.tree, self.form)
+            result = DefineStackFrame(self.env, self.parent, self.head, self.tree, self.form)
             result.form_value = value
             return result
         return RuntimeErrorFrame(self.env, self, "with_value called too many times")
@@ -115,7 +116,11 @@ class DefineStackFrame(StackFrame):
     def frame_or_value(self, rt):
         if self.form_value is self.__missing:
             return DispatchStackFrame(self.env, self, self.form)
-        self.env.add_match(rt, tree=self.tree, obj=self.form_value)
+        if self.head is rt.DEFINE:
+            self.env.add_match(rt, tree=self.tree, obj=self.form_value)
+        elif self.head is rt.SET:
+            self.env.set_match(rt, tree=self.tree, obj=self.form_value)
+        # void
         return self.parent
 
     def __str__(self):
@@ -330,10 +335,10 @@ class DispatchStackFrame(StackFrame):
             if rt.length(self.form) not in (2, 3):
                 return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to eval", self.form)
             return EvalStackFrame(self.env, self.parent, formlist=rt.rest(self.form))
-        if self.head is rt.DEFINE:
+        if self.head is rt.DEFINE or self.head is rt.SET:
             if rt.length(self.form) != 3:
-                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to define", self.form)
-            return DefineStackFrame(self.env, self.parent, tree=rt.second(self.form), form=rt.third(self.form))
+                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to {}".format(self.head.name))
+            return DefineStackFrame(self.env, self.parent, head=self.head, tree=rt.second(self.form), form=rt.third(self.form))
         if rt.is_applicative(self.head):
             args = rt.rest(self.form)
             return ApplicativeStackFrame(self.env, self.parent, func_value=self.head, args=args)

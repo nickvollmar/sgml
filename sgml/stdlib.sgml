@@ -34,12 +34,7 @@
 
 (define if
   (macro (pred then else) env
-
-    (eval (list cond (list pred then) (list t else)) env)
-    #_(cond ((eval pred env) (eval then env))
-            (t               (eval else env)))
-    ))
-
+    (eval (list cond (list pred then) (list t else)) env)))
 
 (defn apply (appv arg . opt)
   (eval (cons (unwrap appv) arg)

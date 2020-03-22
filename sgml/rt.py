@@ -217,12 +217,13 @@ PRIMITIVE_FUNCTIONS = {
         ("/", lambda arguments, env: functools.reduce(op.truediv, iter_elements(arguments))),
         ("<", lambda arguments, env: first(arguments) < second(arguments)),
         (">", lambda arguments, env: first(arguments) > second(arguments)),
-        ("negative?", lambda arguments, env: _negative(arguments)),
         ("print", _print),
         ("wrap", _wrap),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
         ("make-environment", lambda _, __: base_env()),
         ("get-current-environment", lambda _, env: env),
+
+        ("negative?", lambda arguments, env: _negative(arguments)),
     ]
 }
 
@@ -244,6 +245,7 @@ DEFINE = SpecialForm("define")
 LET = SpecialForm("let")  # TODO: define as macro when am more comfortable
 IGNORE = SpecialForm("_")
 CALL_CC = SpecialForm("call/cc")
+SET = SpecialForm("set!")
 
 SPECIAL_FORMS = {
     symbol(form.name): form
@@ -257,6 +259,7 @@ SPECIAL_FORMS = {
     LET,
     IGNORE,
     CALL_CC,
+    SET,
 ]
 }
 
