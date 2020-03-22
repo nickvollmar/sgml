@@ -42,7 +42,7 @@ class Environment:
         if rt.is_null(tree) and rt.is_null(obj):
             return
         if rt.is_null(tree) or rt.is_null(obj):
-            raise ValueError("arity error")
+            raise ValueError("tree: {}, obj: {}".format(rt.as_string(tree), rt.as_string(obj)))
         # it's a pair
         self.add_match(rt, rt.first(tree), rt.first(obj))
         self.add_match(rt, rt.rest(tree), rt.rest(obj))

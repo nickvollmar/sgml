@@ -121,6 +121,31 @@ class DefineStackFrame(StackFrame):
     def __str__(self):
         return "{} tree={} form={}".format(self.__class__.__name__, self.tree, self.form)
 
+class LabelStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, label, form):
+        super(LabelStackFrame, self).__init__(env, parent)
+        self.label = label
+        self.form = form
+        self.form_value = self.__missing
+
+    def with_value(self, rt, value):
+        if self.form_value is self.__missing:
+            result = LabelStackFrame(self.env, self.parent, self.label, self.form)
+            result.form_value = value
+            return result
+        return RuntimeErrorFrame(self.env, self, "with_value called too many times")
+
+    def frame_or_value(self, rt):
+        if self.form_value is self.__missing:
+            return DispatchStackFrame(self.env, self, self.form)
+        self.env.add_match(rt, tree=self.label, obj=self.form_value)
+        return self.form_value
+
+    def __str__(self):
+        return "{} label={} form={}".format(self.__class__.__name__, self.label, self.form)
+
 
 class LetStackFrame(StackFrame):
     __missing = object()
@@ -166,6 +191,12 @@ class ApplicativeStackFrame(StackFrame):
         if rt.is_null(self.remaining_args):
             args = rt.forms_to_list(self.arg_values)
             func = rt.unwrap(self.func_value)
+            if rt.is_continuation(func):
+                # is this correct? and/or the best way to do this?
+                result = rt.continuation_frame(func)
+                for v in self.arg_values:
+                    result = result.with_value(rt, v)
+                return result
             if rt.is_primitive_function(func):
                 return rt.apply_primitive_function(func, args, self.env)
             return make_operative_stack_frame(rt, self.env, self.parent, func, args)
@@ -211,6 +242,33 @@ class OperativeStackFrame(StackFrame):
         return "{} operative_body={}".format(self.__class__.__name__, self.operative_body)
 
 
+class CallCCStackFrame(StackFrame):
+    __missing = object()
+
+    def __init__(self, env, parent, form):
+        super(CallCCStackFrame, self).__init__(env, parent)
+        self.form = form
+        self.form_value = self.__missing
+
+    def with_value(self, rt, value):
+        if self.form_value is self.__missing:
+            result = CallCCStackFrame(self.env, self.parent, self.form)
+            result.form_value = value
+            return result
+        return RuntimeErrorFrame(self.env, self, "with_value called too many times")
+
+    def frame_or_value(self, rt):
+        if self.form_value is self.__missing:
+            return DispatchStackFrame(self.env, self, self.form)
+        # invoke self.form_value with one argument, the continuation
+        args = rt.cons(rt.continuation(self.parent), rt.null())
+        result = DispatchStackFrame(self.env, self.parent, rt.cons(self.form_value, args))
+        result.head = self.form_value  # skip the "recur to get the first value" part
+        return result
+
+    def __str__(self):
+        return "{} form={}".format(self.__class__.__name__, self.form)
+
 
 class DispatchStackFrame(StackFrame):
     __missing = object()
@@ -253,6 +311,16 @@ class DispatchStackFrame(StackFrame):
             env_formal = rt.third(self.form)
             body = rt.rest(rt.rest(rt.rest(self.form)))
             return rt.operative(parameters, env_formal, body, self.env.child_scope())
+
+        if self.head is rt.LABEL:
+            if rt.length(self.form) != 3:
+                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to label", self.form)
+            return LabelStackFrame(self.env, self.parent, label=rt.second(self.form), form=rt.third(self.form))
+
+        if self.head is rt.CALL_CC:
+            if rt.length(self.form) != 2:
+                return RuntimeErrorFrame(self.env, self.parent, "wrong arguments to call/cc", self.form)
+            return CallCCStackFrame(self.env, self.parent, form=rt.second(self.form))
 
         if self.head is rt.COND:
             return CondStackFrame(self.env, self.parent, branches=rt.rest(self.form))
@@ -300,7 +368,8 @@ def evaluate(rt, code, env):
                 # "pop"
                 stack_top = stack_top.parent.with_value(rt, frame_or_value)
         except Exception as e:
-            stack_top = RuntimeErrorFrame(env, stack_top, "Python error", e)
+            #stack_top = RuntimeErrorFrame(env, stack_top, "Python error", e)
+            raise
 
         if isinstance(stack_top, RuntimeErrorFrame):
             # todo: try/catch

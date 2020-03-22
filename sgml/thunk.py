@@ -3,6 +3,11 @@ class Applicative:
         self.combiner = combiner
 
 
+class Continuation:
+    def __init__(self, frame):
+        self.frame = frame
+
+
 class Operative:
     def __init__(self, parameters, dynamic_env_parameter, body, static_env):
         self.parameters = parameters

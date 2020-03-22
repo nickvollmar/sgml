@@ -49,6 +49,9 @@
   (cond ((null x) nil)
         (t (cons (fn (car x)) (maplist (cdr x) fn)))))
 
+(defn for-each (fn x)
+  (maplist x fn))
+
 (defn length (a)
   (cond ((null a) 0)
         ((atom a) 0)

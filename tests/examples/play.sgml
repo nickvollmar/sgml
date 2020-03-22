@@ -7,3 +7,83 @@
 (let ((f (lambda j (print "j:" j) (cons (car j) (quote x))))
       (input (quote (a b (c . d)))))
   (print (maplist input f)))
+
+
+;;;; call/cc examples adapted from Wikipedia article ;;;;
+; https://en.wikipedia.org/wiki/Call-with-current-continuation
+(defn f (return)
+  (return 2)
+  3)
+(print (f (lambda (x) x))) ; displays 3
+(print (call/cc f)) ; displays 2
+
+; This part doesn't work, I think `define` is goofed up (among other things)
+#_(
+;; [LISTOF X] -> ( -> X u 'you-fell-off-the-end)
+(defn generate-one-element-at-a-time (lst)
+  ;; Both internal functions are closures over lst
+
+  ;; Internal variable/Function which passes the current element in a list
+  ;; to its return argument (which is a continuation), or passes an end-of-list marker
+  ;; if no more elements are left. On each step the function name is
+  ;; rebound to a continuation which points back into the function body,
+  ;; while return is rebound to whatever continuation the caller specifies.
+  (defn control-state (return)
+    (for-each
+     (lambda (element)
+               (define return (call/cc
+                              (lambda (resume-here)
+                                ;; Grab the current continuation
+                               (define control-state resume-here)
+                               (return element))))) ;; (return element) evaluates to next return
+     lst)
+    (return "you-fell-off-the-end"))
+
+  ;; (-> X u 'you-fell-off-the-end)
+  ;; This is the actual generator, producing one item from a-list at a time.
+  (defn generator ()
+    (call/cc control-state))
+
+  ;; Return the generator
+  generator)
+
+(define generate-digit
+  (generate-one-element-at-a-time (quote (0 1 2))))
+
+(print (generate-digit)) ;; 0
+(print (generate-digit)) ;; 1
+(print (generate-digit)) ;; 2
+(print (generate-digit)) ;; you-fell-off-the-end
+)
+
+; adapted from Scheme spec
+; https://schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_idx_566
+(print
+(call/cc
+  (lambda (exit)
+    (for-each (lambda (x)
+                (if (negative? x)
+                    (exit x)
+                    _))
+              (list 54 0 37 (- 0 3) 245 19))
+    t))
+)
+; ===>  -3
+
+(define list-length
+  (lambda (obj)
+    (call/cc
+      (lambda (return)
+        (let ((r
+                  (label r' (lambda (obj)
+                    (cond ((null obj) 0)
+                          ((null (atom obj)) (+ (r' (cdr obj)) 1))
+                          (t (return nil)))))))
+          (r obj))))))
+
+(print (list-length (quote (1 2 3 4))))
+; ===>  4
+
+(print (list-length (quote (a b . c))))
+; ===>  #f
+

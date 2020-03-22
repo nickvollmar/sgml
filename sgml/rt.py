@@ -7,7 +7,7 @@ import sgml.interpreter
 import sgml.reader
 from sgml.symbol import Symbol
 from sgml.environment import Environment
-from sgml.thunk import Applicative, Operative, PrimitiveFunction
+from sgml.thunk import Applicative, Continuation, Operative, PrimitiveFunction
 
 
 def forms_to_list(forms, dotted=False):
@@ -124,20 +124,20 @@ def as_string(value):
     return result
 
 
-def is_primitive_function(fn):
-    return isinstance(fn, PrimitiveFunction)
+def is_primitive_function(value):
+    return isinstance(value, PrimitiveFunction)
 
 
-def apply_primitive_function(form: PrimitiveFunction, arguments, env):
-    return form.f(arguments, env)
+def apply_primitive_function(value: PrimitiveFunction, arguments, env):
+    return value.f(arguments, env)
 
 
 def operative(parameters, dynamic_env, body, static_env):
     return Operative(parameters, dynamic_env, body, static_env)
 
 
-def is_operative(form):
-    return isinstance(form, Operative)
+def is_operative(value):
+    return isinstance(value, Operative)
 
 
 def operative_parameters(f: Operative):
@@ -156,8 +156,20 @@ def operative_static_env(f: Operative):
     return f.static_env
 
 
-def is_applicative(code):
-    return isinstance(code, (Applicative, PrimitiveFunction))
+def is_applicative(value):
+    return isinstance(value, (Applicative, PrimitiveFunction, Continuation))
+
+
+def is_continuation(value):
+    return isinstance(value, Continuation)
+
+
+def continuation(frame):
+    return Continuation(frame)
+
+
+def continuation_frame(continuation):
+    return continuation.frame
 
 
 def wrap(f):
@@ -171,7 +183,7 @@ def wrap(f):
 def unwrap(a):
     if isinstance(a, Applicative):
         return a.combiner
-    if isinstance(a, PrimitiveFunction):
+    if is_applicative(a):
         return a
     raise AssertionError("unwrap called on non-applicative {}".format(as_string(a)))
 
@@ -183,6 +195,9 @@ def _wrap(args, env):
 def _print(args, env):
     strs = [as_string(arg) for arg in iter_elements(args)]
     print(*strs)
+
+def _negative(args):
+    return all(i < 0 for i in iter_elements(args))
 
 PRIMITIVE_FUNCTIONS = {
     symbol(name): PrimitiveFunction(name, func)
@@ -202,6 +217,7 @@ PRIMITIVE_FUNCTIONS = {
         ("/", lambda arguments, env: functools.reduce(op.truediv, iter_elements(arguments))),
         ("<", lambda arguments, env: first(arguments) < second(arguments)),
         (">", lambda arguments, env: first(arguments) > second(arguments)),
+        ("negative?", lambda arguments, env: _negative(arguments)),
         ("print", _print),
         ("wrap", _wrap),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
@@ -223,10 +239,11 @@ QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
 EVAL = SpecialForm("eval")
 MACRO = SpecialForm("macro")
-# LABEL = SpecialForm("label")
+LABEL = SpecialForm("label")
 DEFINE = SpecialForm("define")
 LET = SpecialForm("let")  # TODO: define as macro when am more comfortable
 IGNORE = SpecialForm("_")
+CALL_CC = SpecialForm("call/cc")
 
 SPECIAL_FORMS = {
     symbol(form.name): form
@@ -235,10 +252,11 @@ SPECIAL_FORMS = {
     COND,
     EVAL,
     MACRO,
-    # LABEL,
+    LABEL,
     DEFINE,
     LET,
     IGNORE,
+    CALL_CC,
 ]
 }
 
