@@ -1,5 +1,5 @@
-#_(let ((lambda (macro (formals body) env
-                            (wrap (eval (list macro formals _ body)
+#_(let ((lambda (fexpr (formals body) env
+                            (wrap (eval (list fexpr formals _ body)
                                         env))))
       )
 ((label pairlis (lambda (x y a)
@@ -10,8 +10,8 @@
  (quote (u v w))
  (quote ((d . x) (e . y)))))
 
-(let ((lambda (macro (formals body) env
-                            (wrap (eval (list macro formals _ body)
+(let ((lambda (fexpr (formals body) env
+                            (wrap (eval (list fexpr formals _ body)
                                         env)))))
 
 ((label pairlis (lambda (x y a)

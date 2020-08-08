@@ -11,13 +11,14 @@ class SgmlTestCase(unittest.TestCase):
         self.rt = sgml.rt
         self.env = self.rt.base_env()
 
-    def eval(self, code: str):
+    def eval(self, code: str, env=None):
         forms = sgml.reader.read_many(
             self.rt,
             sgml.reader.INITIAL_MACROS,
             StringStream(code)
         )
-        env = self.env.child_scope()
+        if env is None:
+            env = self.env.child_scope()
         result = None
         for form in self.rt.iter_elements(forms):
             result = sgml.interpreter.evaluate(self.rt, form, env)

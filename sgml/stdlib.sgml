@@ -1,11 +1,11 @@
 (define lambda
-  (macro (formals . body) env
-    (let ((thunk-code (cons macro (cons formals (cons _ body))))
+  (fexpr (formals . body) env
+    (let ((thunk-code (cons fexpr (cons formals (cons _ body))))
           (thunk (eval thunk-code env)))
       (wrap thunk))))
 
 (define defn
-  (macro (name formals . body) env
+  (fexpr (name formals . body) env
     (let ((definition (cons lambda (cons formals body)))
           (value (eval definition env)))
 
@@ -33,7 +33,7 @@
         (t (assoc x (cdr a)))))
 
 (define if
-  (macro (pred then else) env
+  (fexpr (pred then else) env
     (eval (list cond (list pred then) (list t else)) env)))
 
 (defn apply (appv arg . opt)
@@ -54,14 +54,14 @@
 
 
 (define and
-  (macro x e
+  (fexpr x e
     (cond ((null x) t)
           ((null (cdr x)) (eval (car x) e))
           ((eval (car x) e) (apply (wrap and) (cdr x) e))
           (t nil))))
 
 (define begin
-  (macro x e
+  (fexpr x e
     (cond ((null x) _)
           ((null (cdr x)) (eval (car x) e))
           (t (let ((_ (eval (car x) e)))

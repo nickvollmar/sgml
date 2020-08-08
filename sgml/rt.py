@@ -239,10 +239,10 @@ class SpecialForm:
 QUOTE = SpecialForm("quote")
 COND = SpecialForm("cond")
 EVAL = SpecialForm("eval")
-MACRO = SpecialForm("macro")
+FEXPR = SpecialForm("fexpr")
 LABEL = SpecialForm("label")
 DEFINE = SpecialForm("define")
-LET = SpecialForm("let")  # TODO: define as macro when am more comfortable
+LET = SpecialForm("let")  # TODO: define as fexpr when am more comfortable
 IGNORE = SpecialForm("_")
 CALL_CC = SpecialForm("call/cc")
 SET = SpecialForm("set!")
@@ -253,7 +253,7 @@ SPECIAL_FORMS = {
     QUOTE,
     COND,
     EVAL,
-    MACRO,
+    FEXPR,
     LABEL,
     DEFINE,
     LET,

@@ -180,6 +180,10 @@ class LetStackFrame(StackFrame):
         return "{} bindings={} body={}".format(self.__class__.__name__, self.bindings, self.body)
 
 
+class TopLevelReturnValue:
+    def __init__(self, value):
+        self.value = value
+
 class ApplicativeStackFrame(StackFrame):
     def __init__(self, env, parent, func_value, args):
         super(ApplicativeStackFrame, self).__init__(env, parent)
@@ -199,6 +203,10 @@ class ApplicativeStackFrame(StackFrame):
             if rt.is_continuation(func):
                 # is this correct? and/or the best way to do this?
                 result = rt.continuation_frame(func)
+                if result is None:
+                    if len(self.arg_values) != 1:
+                        return RuntimeErrorFrame(self.env, self, "top-level continuation should return one item", self.arg_values)
+                    return TopLevelReturnValue(self.arg_values[0])
                 for v in self.arg_values:
                     result = result.with_value(rt, v)
                 return result
@@ -309,8 +317,8 @@ class DispatchStackFrame(StackFrame):
             return rt.IGNORE
         if self.head is rt.QUOTE:
             return rt.second(self.form)
-        if self.head is rt.MACRO:
-            # (macro (x y z) (...))
+        if self.head is rt.FEXPR:
+            # (fexpr (x y z) (...))
             # from the Kernel concept "vau"
             parameters = rt.second(self.form)
             env_formal = rt.third(self.form)
@@ -369,6 +377,8 @@ def evaluate(rt, code, env):
                 stack_top = frame_or_value
             elif stack_top.parent is None:
                 return frame_or_value
+            elif isinstance(frame_or_value, TopLevelReturnValue):
+                return frame_or_value.value
             else:
                 # "pop"
                 stack_top = stack_top.parent.with_value(rt, frame_or_value)
