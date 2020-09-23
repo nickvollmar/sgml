@@ -1,9 +1,9 @@
 import re
+from dataclasses import dataclass
 
 from sgml.reader.macros import Macros
 from sgml.reader.streams import Stream
 
-_DOTTED_LISTS_ = True
 _ESCAPE_CHARS = {
     'n': '\n',
     'r': '\r',
@@ -14,102 +14,118 @@ _ESCAPE_CHARS = {
 _INT_PAT = re.compile("[0-9]+")
 
 
+@dataclass
+class State:
+    rt: object
+    macros: Macros
+    stream: Stream
+    dotted_lists: bool = True
+
+
 def _is_whitespace(ch):
     return ch == ' ' or ch == '\n' or ch == '\t'
 
 
 def _is_constituent(macros, ch):
-    if _is_whitespace(ch) or ch in macros.initial:
+    if _is_whitespace(ch) or macros.is_terminating(ch):
         return False
     # todo: probably more cases
     return True
 
-
-def _read_token(rt, macros, stream, ch):
+def _read_token(state, ch):
     result = ch
-    for ch in stream:
-        if _is_whitespace(ch) or macros.is_terminating(ch):
-            stream.ungetc(ch)
+    for ch in state.stream:
+        if _is_whitespace(ch) or state.macros.is_terminating(ch):
+            state.stream.ungetc(ch)
             break
-        elif _is_constituent(macros, ch):
+        elif _is_constituent(state.macros, ch):
             result += ch
         else:
-            raise stream.error("Nonconstituent character '{}'".format(ch))
+            raise state.stream.error("Nonconstituent character '{}'".format(ch))
     if result == "*t*":
-        return rt.true()
+        return state.rt.true()
     if result == "nil":
-        return rt.null()
+        return state.rt.null()
     if _INT_PAT.match(result):
-        return rt.integer(int(result, 10))
-    return rt.symbol(result)
+        return state.rt.integer(int(result, 10))
+    return state.rt.symbol(result)
 
 
-def _read(rt, macros, stream):
-    for ch in stream:
+def _read(state):
+    for ch in state.stream:
         if _is_whitespace(ch):
             continue
-        if ch in macros.initial:
-            f = macros.initial[ch]
-            return f(rt, macros, stream, ch)
-        return _read_token(rt, macros, stream, ch)
+        if ch in state.macros.initial:
+            f = state.macros.initial[ch]
+            return f(state, ch)
+        return _read_token(state, ch)
 
 
-def _read_list(rt, macros, stream, ch):
+def _read_list(state, ch):
     assert ch == '('
     forms = []
     dotted = False
     seen_improper_cdr = False
-    for ch in stream:
+    for ch in state.stream:
         if _is_whitespace(ch):
             continue
         if ch == ')':
-            if _DOTTED_LISTS_:
-                return rt.forms_to_list(forms, dotted)
+            if state.dotted_lists:
+                return state.rt.forms_to_list(forms, dotted)
             return tuple(forms)
 
         if dotted and seen_improper_cdr:
-            raise stream.error("Expected one cdr in dotted s-expression")
-        stream.ungetc(ch)
-        next_form = _read(rt, macros, stream)
+            raise state.stream.error("Expected one cdr in dotted s-expression")
+        state.stream.ungetc(ch)
+        next_form = _read(state)
         if next_form is None:
             continue
-        if next_form == rt.symbol('.'):
-            if not _DOTTED_LISTS_:
+        if next_form == state.rt.symbol('.'):
+            if not state.dotted_lists:
                 raise stream.error("Dotted s-expressions are disabled")
             if dotted:
                 raise stream.error("Expected one '.' in dotted s-expression")
             dotted = True
         else:
             forms.append(next_form)
-            if _DOTTED_LISTS_ and dotted:
+            if state.dotted_lists and dotted:
                 seen_improper_cdr = True
-    raise stream.error("EOF while reading list")
+    raise state.stream.error("EOF while reading list")
 
 
-def _read_line_comment(rt, macros, stream, ch):
+def _read_line_comment(state, ch):
     assert ch == ';'
-    for ch in stream:
+    for ch in state.stream:
         if ch == '\n':
             break
     return None
 
+def _read_quote(state, ch):
+    assert ch == "'"
+    form = _read(state)
+    return state.rt.cons(state.rt.QUOTE, state.rt.cons(form, state.rt.null()))
 
-def _read_dispatch(rt, macros, stream, ch):
+def _read_backquote(state, ch):
+    assert ch == "`"
+    assert False, "_read_backquote not implemented"
+
+
+def _read_dispatch(state, ch):
     assert ch == '#'
-    for ch in stream:
-        if ch not in macros.dispatch:
-            raise stream.error("Illegal dispatch character {}".format(ch))
-        f = macros.dispatch[ch]
-        return f(rt, macros, stream, ch)
+    for ch in state.stream:
+        if ch not in state.macros.dispatch:
+            raise state.stream.error("Illegal dispatch character {}".format(ch))
+        f = state.macros.dispatch[ch]
+        return f(state, ch)
 
 
-def _ignore(rt, macros, stream, ch):
+def _ignore(state, ch):
     assert ch == "_"
-    _read(rt, macros, stream)
+    _read(state)
     return None
 
 
-def _read_string(rt, macros, stream, ch):
+def _read_string(state, ch):
     assert ch == '"'
     text = ""
     escaped = False
@@ -123,18 +139,19 @@ def _read_string(rt, macros, stream, ch):
         elif ch == '\\':
             escaped = True
         elif ch == '"':
-            return rt.string(text)
+            return state.rt.string(text)
         else:
             text += ch
     raise stream.error("EOF while reading string literal")
 
 
-def _unmatched_delimiter(rt, macros, stream, ch):
-    raise stream.error("Unmatched delimiter: '{}'".format(ch))
+def _unmatched_delimiter(state, ch):
+    raise state.stream.error("Unmatched delimiter: '{}'".format(ch))
 
 
 def read_one(rt, macros, stream):
-    result = _read(rt, macros, stream)
+    state = State(rt, macros, stream)
+    result = _read(state)
     for ch in stream:
         if not _is_whitespace(ch):
             stream.ungetc(ch)
@@ -145,9 +162,10 @@ def read_one(rt, macros, stream):
 
 
 def read_many(rt, macros: Macros, stream: Stream):
+    state = State(rt, macros, stream)
     forms = []
     while not stream.at_eof():
-        form = _read(rt, macros, stream)
+        form = _read(state)
         if form is not None:
             forms.append(form)
     return rt.forms_to_list(forms)
@@ -158,8 +176,10 @@ INITIAL_MACROS = Macros(
         '(': _read_list,
         ')': _unmatched_delimiter,
         '"': _read_string,
-        '#': _read_dispatch,
         ';': _read_line_comment,
+        "'": _read_quote,
+        '#': _read_dispatch,
+        "`": _read_backquote,
     },
     {
         '_': _ignore,

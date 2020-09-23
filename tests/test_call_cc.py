@@ -36,7 +36,7 @@ class TestCallCC(tests.SgmlTestCase):
                                            (set! control-state resume-here)
                                            (return element))))) ;; (return element) evaluates to next return
                  lst)
-                (return "you-fell-off-the-end"))
+                (return 'you-fell-off-the-end))
 
               ;; (-> X u 'you-fell-off-the-end)
               ;; This is the actual generator, producing one item from lst at a time.
@@ -52,7 +52,7 @@ class TestCallCC(tests.SgmlTestCase):
         self.assertEqual(0, self.eval("(generate-digit)"))
         self.assertEqual(1, self.eval("(generate-digit)"))
         self.assertEqual(2, self.eval("(generate-digit)"))
-        self.assertEqual("you-fell-off-the-end", self.eval("(generate-digit)"))
+        self.assertEqual(self.rt.symbol("you-fell-off-the-end"), self.eval("(generate-digit)"))
 
     def test_from_scheme_spec1(self):
         """

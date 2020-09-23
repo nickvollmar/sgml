@@ -188,16 +188,14 @@ def unwrap(a):
     raise AssertionError("unwrap called on non-applicative {}".format(as_string(a)))
 
 
-def _wrap(args, env):
-    return wrap(first(args))
-
-
 def _print(args, env):
     strs = [as_string(arg) for arg in iter_elements(args)]
     print(*strs)
 
+
 def _negative(args):
     return all(i < 0 for i in iter_elements(args))
+
 
 PRIMITIVE_FUNCTIONS = {
     symbol(name): PrimitiveFunction(name, func)
@@ -218,7 +216,7 @@ PRIMITIVE_FUNCTIONS = {
         ("<", lambda arguments, env: first(arguments) < second(arguments)),
         (">", lambda arguments, env: first(arguments) > second(arguments)),
         ("print", _print),
-        ("wrap", _wrap),
+        ("wrap", lambda arguments, env: wrap(first(arguments))),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
         ("make-environment", lambda _, __: base_env()),
         ("get-current-environment", lambda _, env: env),

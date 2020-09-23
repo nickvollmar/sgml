@@ -4,4 +4,4 @@ class Macros:
         self.dispatch = dispatch
 
     def is_terminating(self, ch):
-        return ch in self.initial
+        return ch in self.initial and ch != "'"
