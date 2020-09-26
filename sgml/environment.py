@@ -1,10 +1,27 @@
-class Environment:
-    def __init__(self, env: dict, parent):
+class Namespace:
+    def __init__(self, name, symbols=None):
+        self.name = name
+        self.env = {} if symbols is None else symbols
+
+    def define(self, symbol, value):
+        self.env[symbol] = value
+
+    def set(self, symbol, value):
+        if symbol not in self.env:
+            raise KeyError("Undefined symbol {}".format(symbol))
+        self.env[symbol] = value
+
+    def scope(self):
+        return Scope(env={}, parent=None, ns=self)
+
+class Scope:
+    def __init__(self, env: dict, parent, ns):
         self.env = env
         self.parent = parent
+        self.ns = ns
 
     def child_scope(self):
-        return Environment(env={}, parent=self)
+        return Scope(env={}, parent=self, ns=self.ns)
 
     def get(self, rt, symbol):
         """
@@ -16,7 +33,19 @@ class Environment:
             return self.env[symbol]
         if self.parent is not None:
             return self.parent.get(rt, symbol)
+        if symbol in self.ns.env:
+            return self.ns.env[symbol]
         raise KeyError(symbol)
+
+    def ns_define(self, rt, symbol, form):
+        if not rt.is_symbol(symbol):
+            raise TypeError("define called with non-symbol {} ({})".format(symbol, type(symbol)))
+        self.ns.define(symbol, form)
+
+    def ns_set(self, rt, symbol, form):
+        if not rt.is_symbol(symbol):
+            raise TypeError("set called with non-symbol {} ({})".format(symbol, type(symbol)))
+        self.ns.set(symbol, form)
 
     def add(self, rt, symbol, form):
         if not rt.is_symbol(symbol):
@@ -44,11 +73,16 @@ class Environment:
     def set_match(self, rt, tree, obj):
         traverse_symbol_tree(rt, tree, obj, self.set)
 
+    def ns_define_match(self, rt, tree, obj):
+        traverse_symbol_tree(rt, tree, obj, self.ns_define)
+
+    def ns_set_match(self, rt, tree, obj):
+        traverse_symbol_tree(rt, tree, obj, self.ns_set)
+
 def traverse_symbol_tree(rt, tree, obj, f):
     """
     Match the formal parameter tree to an object.
-    At every leaf of the tree (i.e. atomic symbol)
-    invoke f.
+    At every leaf of the tree (i.e. symbol) invoke f.
     See kernel.pdf p51.
 
     :param rt: Runtime instance

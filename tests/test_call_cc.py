@@ -9,7 +9,7 @@ class TestCallCC(tests.SgmlTestCase):
             (defn f (return)
               (return 2)
               3)
-        """, self.env)
+        """)
         self.assertEqual(3, self.eval("(f (lambda (x) x))"))
         self.assertEqual(2, self.eval("(call/cc f)"))
 
@@ -47,8 +47,8 @@ class TestCallCC(tests.SgmlTestCase):
               generator)
 
             (define generate-digit
-              (generate-one-element-at-a-time (quote (0 1 2))))
-        """, self.env)
+              (generate-one-element-at-a-time '(0 1 2)))
+        """)
         self.assertEqual(0, self.eval("(generate-digit)"))
         self.assertEqual(1, self.eval("(generate-digit)"))
         self.assertEqual(2, self.eval("(generate-digit)"))
@@ -86,7 +86,6 @@ class TestCallCC(tests.SgmlTestCase):
                                       ((null (atom obj)) (+ (r' (cdr obj)) 1))
                                       (t (return nil)))))))
                       (r obj))))))
-        """, self.env)
-
-        self.assertEqual(4, self.eval("(list-length (quote (1 2 3 4)))"))
-        self.assertEqual(self.rt.null(), self.eval("(list-length (quote (a b . c)))"))
+        """)
+        self.assertEqual(4, self.eval("(list-length '(1 2 3 4))"))
+        self.assertEqual(self.rt.null(), self.eval("(list-length '(a b . c))"))

@@ -7,31 +7,31 @@ class TestStdlib(tests.SgmlTestCase):
         subst[(X . A); B; ((A . B) . C)] = ((A . (X . A)) . C)
         """
         self.assertBothEval("""
-            (let ((subst-target (quote (x . a)))
-                  (subst-source (quote b))
-                  (expr (quote ((a . b) . c))))
+            (let ((subst-target '(x . a))
+                  (subst-source 'b)
+                  (expr '((a . b) . c)))
               (subst subst-target subst-source expr))
         """, """
-            (quote ((a . (x . a)) . c))
+            '((a . (x . a)) . c)
         """)
 
     def test_pairlis(self):
         self.assertBothEval("""
             (pairlis
-              (quote (a b c))
-              (quote (u v w))
-              (quote ((d . x) (e . y))))
+              '(a b c)
+              '(u v w)
+              '((d . x) (e . y)))
         """, """
-            (quote ((a . u) (b . v) (c . w) (d . x) (e . y)))
+            '((a . u) (b . v) (c . w) (d . x) (e . y))
         """)
 
     def test_assoc(self):
         self.assertBothEval("""
             (assoc
-              (quote b)
-              (quote ((a . (m n)) (b . (car x)) (c . (quote m)) (c . (cdr x)))))
+              'b
+              '((a . (m n)) (b . (car x)) (c . m) (c . (cdr x))))
         """, """
-            (quote (b . (car x)))
+            '(b . (car x))
         """)
 
     def test_if(self):
@@ -43,23 +43,23 @@ class TestStdlib(tests.SgmlTestCase):
     def test_apply(self):
         self.assertEqual(6, self.eval("""
             (let ((f (lambda (x y z) (* x y z)))
-                  (args (list 1 2 3)))
+                  (args '(1 2 3)))
               (apply f args))
         """))
 
     def test_maplist(self):
         self.assertBothEval("""
-            (let ((f (lambda (j) (cons j (quote x))))
-                  (input (quote (a b (c . d)))))
+            (let ((f (lambda (j) (cons j 'x)))
+                  (input '(a b (c . d))))
               (maplist input f))
         """, """
-            (quote ((a . x) (b . x) ((c . d) . x)))
+            '((a . x) (b . x) ((c . d) . x))
         """)
 
         self.assertBothEval("""
             (let ((x 2)
                   (f (lambda ((a b c)) (+ (* a (* x x)) (* b x) c)))
-                  (coeffs (quote ((1 0 1) (3 2 1)))))
+                  (coeffs '((1 0 1) (3 2 1))))
              (maplist coeffs f))
         """, """
             (list 5 17)
@@ -95,3 +95,8 @@ class TestStdlib(tests.SgmlTestCase):
                 (and t (/ 1 0) nil)
             """)
         self.assertRaises(Exception, g)
+
+    def test_append_star(self):
+        self.assertBothEval(
+            "(append* '(1 2) '(3) '(4 5 6) '(7 8))",
+            "'(1 2 3 4 5 6 7 8)")

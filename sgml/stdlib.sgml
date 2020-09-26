@@ -52,7 +52,6 @@
         ((atom a) 0)
         (t (+ 1 (length (cdr a))))))
 
-
 (define and
   (fexpr x e
     (cond ((null x) t)
@@ -66,3 +65,21 @@
           ((null (cdr x)) (eval (car x) e))
           (t (let ((_ (eval (car x) e)))
                (apply (wrap begin) (cdr x) e))))))
+
+(defn foldl (f z l)
+  (if (null l)
+    z
+    (foldl f (f z (car l)) (cdr l))))
+
+(defn foldr (f z l)
+  (if (null l)
+    z
+    (f (car l) (foldr f z (cdr l)))))
+
+(defn append (ls1 ls2)
+  (if (null ls1)
+    ls2
+    (cons (car ls1) (append (cdr ls1) ls2))))
+
+(defn append* lsts
+  (foldr append nil lsts))

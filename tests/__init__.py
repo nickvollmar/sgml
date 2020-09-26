@@ -9,21 +9,19 @@ import unittest
 class SgmlTestCase(unittest.TestCase):
     def setUp(self):
         self.rt = sgml.rt
-        self.env = self.rt.base_env()
+        self.ns = self.rt._uncached_stdlib_ns()
 
-    def eval(self, code: str, env=None):
+    def eval(self, code: str, scope=None):
         forms = sgml.reader.read_many(
             self.rt,
             sgml.reader.INITIAL_MACROS,
             StringStream(code)
         )
-        if env is None:
-            env = self.env.child_scope()
         result = None
         for form in self.rt.iter_elements(forms):
-            result = sgml.interpreter.evaluate(self.rt, form, env)
+            result = sgml.interpreter.evaluate(self.rt, form, self.ns)
         return result
-        
+
     def assertFormsEqual(self, expected, actual, msg=None):
         if not self.rt.eq(expected, actual):
             standard_msg = 'expected {} != actual {}'.format(expected, actual)

@@ -8,7 +8,7 @@ class TestInterpreter(tests.SgmlTestCase):
                 (define supergreat
                   (lambda (x y z)
                     (print x y z)))
-                
+
                 (supergreat 1 2)
             """)
         self.assertRaises(Exception, f)

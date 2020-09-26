@@ -6,7 +6,7 @@ import sys
 import sgml.interpreter
 import sgml.reader
 from sgml.symbol import Symbol
-from sgml.environment import Environment
+from sgml.environment import Namespace
 from sgml.thunk import Applicative, Continuation, Operative, PrimitiveFunction
 
 
@@ -218,7 +218,7 @@ PRIMITIVE_FUNCTIONS = {
         ("print", _print),
         ("wrap", lambda arguments, env: wrap(first(arguments))),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
-        ("make-environment", lambda _, __: base_env()),
+        ("make-environment", lambda _, __: stdlib_ns().scope()),
         ("get-current-environment", lambda _, env: env),
 
         ("negative?", lambda arguments, env: _negative(arguments)),
@@ -244,6 +244,7 @@ LET = SpecialForm("let")  # TODO: define as fexpr when am more comfortable
 IGNORE = SpecialForm("_")
 CALL_CC = SpecialForm("call/cc")
 SET = SpecialForm("set!")
+QUASIQUOTE = SpecialForm("quasiquote")
 
 SPECIAL_FORMS = {
     symbol(form.name): form
@@ -262,28 +263,38 @@ SPECIAL_FORMS = {
 }
 
 
-_cached_base_env = None
-
-
-def base_env():
-    global _cached_base_env
-    if _cached_base_env is None:
-        primitive = {
+_cached_primitives = None
+def primitives():
+    global _cached_primitives
+    if _cached_primitives is None:
+        primitives = {
             symbol('t'): true(),
             symbol('nil'): null(),
         }
-        primitive.update(SPECIAL_FORMS)
-        primitive.update(PRIMITIVE_FUNCTIONS)
-        env = Environment(env=primitive, parent=None)
-        with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-            stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-            # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
-            module = sys.modules[__name__]
-            forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
-            for form in iter_elements(forms):
-                sgml.interpreter.evaluate(module, form, env)
-        _cached_base_env = env
-    return _cached_base_env.child_scope()
+        primitives.update(SPECIAL_FORMS)
+        primitives.update(PRIMITIVE_FUNCTIONS)
+        _cached_primitives = primitives
+    return _cached_primitives
+
+
+def _uncached_stdlib_ns():
+    ns = Namespace("stdlib", primitives())
+    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+        stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+        # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+        module = sys.modules[__name__]
+        forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+        for form in iter_elements(forms):
+            sgml.interpreter.evaluate(module, form, ns)
+    return ns
+
+
+_cached_stdlib_ns = None
+def stdlib_ns():
+    global _cached_stdlib_ns
+    if _cached_stdlib_ns is None:
+        _cached_stdlib_ns = _uncached_stdlib_ns()
+    return _cached_stdlib_ns
 
 
 def debug(form) -> str:
@@ -300,10 +311,3 @@ def debug(form) -> str:
             + ' '.join(debug(f) for f in iter_elements(form))
             + ')'
     )
-
-
-def debug_environment(e: Environment):
-    for sym, val in e.env.items():
-        print('{}: {}'.format(sym, debug(val)))
-    if e.parent:
-        debug_environment(e.parent)

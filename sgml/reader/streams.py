@@ -13,6 +13,12 @@ class Stream(ABC):
     def at_eof(self) -> bool:
         raise NotImplementedError()
 
+    def getc(self):
+        try:
+            return next(self)
+        except StopIteration:
+            raise self.error("Empty stream")
+
     @abstractmethod
     def ungetc(self, ch):
         raise NotImplementedError()

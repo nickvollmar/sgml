@@ -8,9 +8,9 @@ USAGE = "Usage: python3 -m sgml.main [ -c <command> ] | [filename]"
 
 
 def main(args):
-    i = 1
     command = None
     filename = None
+    i = 1
     while i < len(args):
         if args[i] in ("-h", "-help", "--help", "-?"):
             print(USAGE)
@@ -35,17 +35,17 @@ def main(args):
     if command is not None:
         stream = sgml.reader.streams.StringStream(command)
         form = sgml.reader.read_one(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
-        sgml.interpreter.evaluate(sgml.rt, form, sgml.rt.base_env())
+        sgml.interpreter.evaluate(sgml.rt, form, sgml.rt.stdlib_ns().scope())
         return 0
 
     if filename is not None:
         with open(filename, 'r') as f:
             stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
             forms = sgml.reader.read_many(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
-            env = sgml.rt.base_env()
+            scope = sgml.rt.stdlib_ns().scope()
             sgml.interpreter._debug = True
             for form in sgml.rt.iter_elements(forms):
-                sgml.interpreter.evaluate(sgml.rt, form, env)
+                sgml.interpreter.evaluate(sgml.rt, form, scope)
         return 0
     return 0
 

@@ -1,5 +1,7 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from enum import Enum, auto
+from typing import List
 
 from sgml.reader.macros import Macros
 from sgml.reader.streams import Stream
@@ -13,9 +15,8 @@ _ESCAPE_CHARS = {
 }
 _INT_PAT = re.compile("[0-9]+")
 
-
 @dataclass
-class State:
+class ReaderState:
     rt: object
     macros: Macros
     stream: Stream
@@ -82,9 +83,9 @@ def _read_list(state, ch):
             continue
         if next_form == state.rt.symbol('.'):
             if not state.dotted_lists:
-                raise stream.error("Dotted s-expressions are disabled")
+                raise state.stream.error("Dotted s-expressions are disabled")
             if dotted:
-                raise stream.error("Expected one '.' in dotted s-expression")
+                raise state.stream.error("Expected one '.' in dotted s-expression")
             dotted = True
         else:
             forms.append(next_form)
@@ -100,14 +101,32 @@ def _read_line_comment(state, ch):
             break
     return None
 
+
 def _read_quote(state, ch):
     assert ch == "'"
     form = _read(state)
-    return state.rt.cons(state.rt.QUOTE, state.rt.cons(form, state.rt.null()))
+    return state.rt.cons(state.rt.symbol("quote"), state.rt.cons(form, state.rt.null()))
+
 
 def _read_backquote(state, ch):
     assert ch == "`"
-    assert False, "_read_backquote not implemented"
+    form = _read(state)
+    return state.rt.cons(state.rt.symbol("quasiquote"), state.rt.cons(form, state.rt.null()))
+
+
+def _read_unquote(state, ch):
+    """
+    This won't work until the relevant macros are implemented.
+    https://stackoverflow.com/a/18515345
+    """
+    assert ch == ","
+    peek = state.stream.getc()
+    if peek == "@":
+        form = _read(state)
+        return state.rt.cons(state.rt.symbol("unquote-splicing"), state.rt.cons(form, state.rt.null()))
+    state.stream.ungetc(peek)
+    form = _read(state)
+    return state.rt.cons(state.rt.symbol("unquote"), state.rt.cons(form, state.rt.null()))
 
 
 def _read_dispatch(state, ch):
@@ -129,20 +148,20 @@ def _read_string(state, ch):
     assert ch == '"'
     text = ""
     escaped = False
-    for ch in stream:
+    for ch in state.stream:
         if escaped:
             if ch in _ESCAPE_CHARS:
                 text += _ESCAPE_CHARS[ch]
                 escaped = False
             else:
-                raise stream.error("Illegal escape character: '{}'".format(ch))
+                raise state.stream.error("Illegal escape character: '{}'".format(ch))
         elif ch == '\\':
             escaped = True
         elif ch == '"':
             return state.rt.string(text)
         else:
             text += ch
-    raise stream.error("EOF while reading string literal")
+    raise state.stream.error("EOF while reading string literal")
 
 
 def _unmatched_delimiter(state, ch):
@@ -150,25 +169,25 @@ def _unmatched_delimiter(state, ch):
 
 
 def read_one(rt, macros, stream):
-    state = State(rt, macros, stream)
+    state = ReaderState(rt, macros, stream)
     result = _read(state)
-    for ch in stream:
+    for ch in state.stream:
         if not _is_whitespace(ch):
-            stream.ungetc(ch)
-            raise stream.error(
-                "Unconsumed input: \"{}\"".format(stream.remainder())
+            state.stream.ungetc(ch)
+            raise state.stream.error(
+                "Unconsumed input: \"{}\"".format(state.stream.remainder())
             )
     return result
 
 
-def read_many(rt, macros: Macros, stream: Stream):
-    state = State(rt, macros, stream)
+def read_many(rt, macros, stream):
+    state = ReaderState(rt, macros, stream)
     forms = []
-    while not stream.at_eof():
+    while not state.stream.at_eof():
         form = _read(state)
         if form is not None:
             forms.append(form)
-    return rt.forms_to_list(forms)
+    return state.rt.forms_to_list(forms)
 
 
 INITIAL_MACROS = Macros(
@@ -180,6 +199,7 @@ INITIAL_MACROS = Macros(
         "'": _read_quote,
         '#': _read_dispatch,
         "`": _read_backquote,
+        ",": _read_unquote,
     },
     {
         '_': _ignore,
