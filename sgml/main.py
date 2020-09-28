@@ -35,17 +35,17 @@ def main(args):
     if command is not None:
         stream = sgml.reader.streams.StringStream(command)
         form = sgml.reader.read_one(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
-        sgml.interpreter.evaluate(sgml.rt, form, sgml.rt.stdlib_ns().scope())
+        sgml.interpreter.evaluate(sgml.rt, form, sgml.rt.user_ns())
         return 0
 
     if filename is not None:
         with open(filename, 'r') as f:
             stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
             forms = sgml.reader.read_many(sgml.rt, sgml.reader.INITIAL_MACROS, stream)
-            scope = sgml.rt.stdlib_ns().scope()
+            ns = sgml.rt.user_ns()
             sgml.interpreter._debug = True
             for form in sgml.rt.iter_elements(forms):
-                sgml.interpreter.evaluate(sgml.rt, form, scope)
+                sgml.interpreter.evaluate(sgml.rt, form, ns)
         return 0
     return 0
 

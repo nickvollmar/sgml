@@ -198,7 +198,7 @@ def _negative(args):
 
 
 PRIMITIVE_FUNCTIONS = {
-    symbol(name): PrimitiveFunction(name, func)
+    name: PrimitiveFunction(name, func)
 
     for (name, func) in [
         ("car", lambda arguments, env: first(first(arguments))),
@@ -218,7 +218,7 @@ PRIMITIVE_FUNCTIONS = {
         ("print", _print),
         ("wrap", lambda arguments, env: wrap(first(arguments))),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
-        ("make-environment", lambda _, __: stdlib_ns().scope()),
+        ("make-environment", lambda _, __: user_ns().scope()),
         ("get-current-environment", lambda _, env: env),
 
         ("negative?", lambda arguments, env: _negative(arguments)),
@@ -247,7 +247,7 @@ SET = SpecialForm("set!")
 QUASIQUOTE = SpecialForm("quasiquote")
 
 SPECIAL_FORMS = {
-    symbol(form.name): form
+    form.name: form
     for form in [
     QUOTE,
     COND,
@@ -268,8 +268,8 @@ def primitives():
     global _cached_primitives
     if _cached_primitives is None:
         primitives = {
-            symbol('t'): true(),
-            symbol('nil'): null(),
+            't': true(),
+            'nil': null(),
         }
         primitives.update(SPECIAL_FORMS)
         primitives.update(PRIMITIVE_FUNCTIONS)
@@ -290,7 +290,7 @@ def _uncached_stdlib_ns():
 
 
 _cached_stdlib_ns = None
-def stdlib_ns():
+def user_ns():
     global _cached_stdlib_ns
     if _cached_stdlib_ns is None:
         _cached_stdlib_ns = _uncached_stdlib_ns()

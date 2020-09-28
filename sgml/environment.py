@@ -2,14 +2,28 @@ class Namespace:
     def __init__(self, name, symbols=None):
         self.name = name
         self.env = {} if symbols is None else symbols
+        self.imports = {}
+
+    def add_import(self, other, alias=None):
+        self.imports[alias or other.name] = other
 
     def define(self, symbol, value):
-        self.env[symbol] = value
+        assert symbol.ns is None, "Can't define namespaced symbol {}".format(symbol)
+        self.env[symbol.text] = value
+
+    def get(self, symbol):
+        if symbol.ns:
+            assert symbol.ns in self.imports, "Undefined namespace {}".format(symbol.ns)
+            return self.imports[symbol.ns].get(symbol)
+        if symbol.text not in self.env:
+            print(self.env)
+        assert symbol.text in self.env, "Undefined symbol {}".format(symbol)
+        return self.env[symbol.text]
 
     def set(self, symbol, value):
-        if symbol not in self.env:
-            raise KeyError("Undefined symbol {}".format(symbol))
-        self.env[symbol] = value
+        assert symbol.ns is None, "Can't define namespaced symbol {}".format(symbol)
+        # assert symbol.text in self.env, "Undefined symbol {}".format(symbol)
+        self.env[symbol.text] = value
 
     def scope(self):
         return Scope(env={}, parent=None, ns=self)
@@ -29,13 +43,11 @@ class Scope:
         """
         if not rt.is_symbol(symbol):
             raise TypeError("get called with non-symbol {} ({})".format(symbol, type(symbol)))
-        if symbol in self.env:
-            return self.env[symbol]
+        if symbol.text in self.env:
+            return self.env[symbol.text]
         if self.parent is not None:
             return self.parent.get(rt, symbol)
-        if symbol in self.ns.env:
-            return self.ns.env[symbol]
-        raise KeyError(symbol)
+        return self.ns.get(symbol)
 
     def ns_define(self, rt, symbol, form):
         if not rt.is_symbol(symbol):
@@ -52,7 +64,7 @@ class Scope:
             raise TypeError("add called with non-symbol {} ({})".format(symbol, type(symbol)))
         if symbol.text == "_":
             return
-        self.env[symbol] = form
+        self.env[symbol.text] = form
 
     def set(self, rt, symbol, form):
         if not rt.is_symbol(symbol):
@@ -61,7 +73,7 @@ class Scope:
             return
 
         if symbol in self.env:
-            self.env[symbol] = form
+            self.env[symbol.text] = form
         elif self.parent is not None:
             self.parent.set(rt, symbol, form)
         else:
