@@ -277,9 +277,8 @@ def primitives():
     return _cached_primitives
 
 
-def _uncached_stdlib_ns():
-    ns = Namespace("stdlib", primitives())
-    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+def load_file(filepath, ns):
+    with open(filepath) as f:
         stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
         # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
         module = sys.modules[__name__]
@@ -289,12 +288,18 @@ def _uncached_stdlib_ns():
     return ns
 
 
+def _uncached_stdlib_ns():
+    return load_file(os.path.join(os.path.dirname(__file__), "stdlib.sgml"), Namespace("", primitives()))
+
+
 _cached_stdlib_ns = None
 def user_ns():
     global _cached_stdlib_ns
     if _cached_stdlib_ns is None:
         _cached_stdlib_ns = _uncached_stdlib_ns()
-    return _cached_stdlib_ns
+    user_ns = Namespace("user")
+    user_ns.include(_cached_stdlib_ns)
+    return user_ns
 
 
 def debug(form) -> str:

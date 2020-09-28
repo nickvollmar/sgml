@@ -7,6 +7,9 @@ class Namespace:
     def add_import(self, other, alias=None):
         self.imports[alias or other.name] = other
 
+    def include(self, other):
+        self.env.update(other.env)
+
     def define(self, symbol, value):
         assert symbol.ns is None, "Can't define namespaced symbol {}".format(symbol)
         self.env[symbol.text] = value
