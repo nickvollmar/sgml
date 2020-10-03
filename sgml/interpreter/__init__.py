@@ -89,7 +89,7 @@ class EvalStackFrame(StackFrame):
 
     def frame_or_value(self, rt):
         if rt.is_null(self.formlist):
-            scope = rt.user_ns().scope() if self.env_value is self.__missing else self.env_value
+            scope = rt._cached_stdlib_ns().scope() if self.env_value is self.__missing else self.env_value
             return DispatchStackFrame(scope, self.parent, form=self.eval_value)
         return DispatchStackFrame(self.scope, self, form=rt.first(self.formlist))
 
@@ -314,6 +314,15 @@ class DispatchStackFrame(StackFrame):
             return DispatchStackFrame(self.scope, self, form=rt.first(self.form))
 
         if self.head is rt.IGNORE:
+            return rt.IGNORE
+        if self.head is rt.NS:
+            rt.set_current_ns(rt.second(self.form))
+            return rt.IGNORE
+        if self.head is rt.REQUIRE:
+            rt.require_ns(rt.second(self.form))
+            return rt.IGNORE
+        if self.head is rt.LOAD:
+            rt.load_file(rt.second(self.form))
             return rt.IGNORE
         if self.head is rt.QUOTE:
             return rt.second(self.form)

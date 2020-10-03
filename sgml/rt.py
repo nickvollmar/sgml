@@ -218,7 +218,7 @@ PRIMITIVE_FUNCTIONS = {
         ("print", _print),
         ("wrap", lambda arguments, env: wrap(first(arguments))),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
-        ("make-environment", lambda _, __: user_ns().scope()),
+        ("make-environment", lambda _, __: _cached_stdlib_ns().scope()),
         ("get-current-environment", lambda _, env: env),
 
         ("negative?", lambda arguments, env: _negative(arguments)),
@@ -245,6 +245,9 @@ IGNORE = SpecialForm("_")
 CALL_CC = SpecialForm("call/cc")
 SET = SpecialForm("set!")
 QUASIQUOTE = SpecialForm("quasiquote")
+NS = SpecialForm("ns")
+REQUIRE = SpecialForm("require")
+LOAD = SpecialForm("load")
 
 SPECIAL_FORMS = {
     form.name: form
@@ -259,6 +262,10 @@ SPECIAL_FORMS = {
     IGNORE,
     CALL_CC,
     SET,
+    QUASIQUOTE,
+    NS,
+    REQUIRE,
+    LOAD,
 ]
 }
 
@@ -277,29 +284,67 @@ def primitives():
     return _cached_primitives
 
 
-def load_file(filepath, ns):
-    with open(filepath) as f:
-        stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
-        # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
-        module = sys.modules[__name__]
-        forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
-        for form in iter_elements(forms):
-            sgml.interpreter.evaluate(module, form, ns)
-    return ns
+_CURRENT_NS = None
+_NS_BY_NAME = {}
+_FILE_SEARCH_PATHS = [os.getcwd()]
+
+def _do_load_file(f, ns):
+    stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
+    # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
+    module = sys.modules[__name__]
+    forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
+    for form in iter_elements(forms):
+        sgml.interpreter.evaluate(module, form, ns)
 
 
 def _uncached_stdlib_ns():
-    return load_file(os.path.join(os.path.dirname(__file__), "stdlib.sgml"), Namespace("", primitives()))
+    ns = Namespace(symbol(""), primitives())
+    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
+        _do_load_file(f, ns)
+    return ns
 
 
-_cached_stdlib_ns = None
-def user_ns():
-    global _cached_stdlib_ns
-    if _cached_stdlib_ns is None:
-        _cached_stdlib_ns = _uncached_stdlib_ns()
-    user_ns = Namespace("user")
-    user_ns.include(_cached_stdlib_ns)
-    return user_ns
+_stdlib_ns = None
+def _cached_stdlib_ns():
+    global _stdlib_ns
+    if _stdlib_ns is None:
+        _stdlib_ns = _uncached_stdlib_ns()
+    return _stdlib_ns
+
+
+def _get_ns(name: Symbol):
+    return _NS_BY_NAME.get(name.text)
+
+
+def _create_ns(name: Symbol):
+    new_ns = Namespace(name)
+    new_ns.include(_cached_stdlib_ns())
+    _NS_BY_NAME[name.text] = new_ns
+    return new_ns
+
+
+def set_current_ns(name: Symbol):
+    return _get_ns(name) or _create_ns(name)
+
+
+def require_ns(name: Symbol):
+    preexisting = _get_ns(name)
+    if preexisting:
+        return preexisting
+    new_ns = _create_ns(name)
+    for p in _IMPORT_SEARCH_PATHS:
+        try:
+            with open(os.path.join(p, name.text + ".sgml")) as f:
+                _do_load_file(f, new_ns)
+            break
+        except FileNotFoundError:
+            continue
+    return new_ns
+
+
+def load_file(path: str):
+    with open(path) as f:
+        _do_load_file(f, _CURRENT_NS)
 
 
 def debug(form) -> str:
