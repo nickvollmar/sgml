@@ -317,6 +317,7 @@ class DispatchStackFrame(StackFrame):
             return rt.IGNORE
         if self.head is rt.NS:
             rt.set_current_ns(rt.second(self.form))
+            self.scope.set_ns(rt.current_ns())
             return rt.IGNORE
         if self.head is rt.REQUIRE:
             rt.require_ns(rt.second(self.form))
@@ -383,8 +384,8 @@ def macroexpand(rt, code):
     return macroexpand(rt, expanded)
 
 
-def evaluate(rt, code, ns):
-    stack_top: StackFrame = DispatchStackFrame(ns.scope(), parent=None, form=code)
+def evaluate(rt, code):
+    stack_top = DispatchStackFrame(rt.current_ns().scope(), parent=None, form=code)
     while True:
         try:
             frame_or_value = stack_top.frame_or_value(rt)

@@ -1,0 +1,11 @@
+(ns fp)
+
+(defn foldl (f z l)
+  (if (null l)
+    z
+    (foldl f (f z (car l)) (cdr l))))
+
+(defn foldr (f z l)
+  (if (null l)
+    z
+    (f (car l) (foldr f z (cdr l)))))

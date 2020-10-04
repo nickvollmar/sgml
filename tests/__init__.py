@@ -9,7 +9,6 @@ import unittest
 class SgmlTestCase(unittest.TestCase):
     def setUp(self):
         self.rt = sgml.rt
-        self.ns = self.rt._create_ns(sgml.rt.symbol("testcase-ns"))
 
     def eval(self, code: str, scope=None):
         forms = sgml.reader.read_many(
@@ -19,7 +18,7 @@ class SgmlTestCase(unittest.TestCase):
         )
         result = None
         for form in self.rt.iter_elements(forms):
-            result = sgml.interpreter.evaluate(self.rt, form, self.ns)
+            result = sgml.interpreter.evaluate(self.rt, form)
         return result
 
     def assertFormsEqual(self, expected, actual, msg=None):

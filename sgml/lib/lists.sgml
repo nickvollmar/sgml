@@ -1,0 +1,10 @@
+(ns lists)
+(require fp)
+
+(defn append (ls1 ls2)
+  (if (null ls1)
+    ls2
+    (cons (car ls1) (append (cdr ls1) ls2))))
+
+(defn append* lsts
+  (fp::foldr append nil lsts))

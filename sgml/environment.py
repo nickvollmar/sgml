@@ -5,7 +5,7 @@ class Namespace:
         self.imports = {}
 
     def add_import(self, other, alias=None):
-        self.imports[alias or other.name] = other
+        self.imports[alias or other.name.text] = other
 
     def include(self, other):
         self.env.update(other.env)
@@ -15,7 +15,7 @@ class Namespace:
         self.env[symbol.text] = value
 
     def get(self, symbol):
-        if symbol.ns:
+        if symbol.ns and symbol.ns != self.name.text:
             assert symbol.ns in self.imports, "Undefined namespace {}".format(symbol.ns)
             return self.imports[symbol.ns].get(symbol)
         if symbol.text not in self.env:
@@ -93,6 +93,9 @@ class Scope:
 
     def ns_set_match(self, rt, tree, obj):
         traverse_symbol_tree(rt, tree, obj, self.ns_set)
+
+    def set_ns(self, ns):
+        self.ns = ns
 
 def traverse_symbol_tree(rt, tree, obj, f):
     """

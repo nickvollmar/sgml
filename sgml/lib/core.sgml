@@ -1,3 +1,5 @@
+(ns core)
+
 (define lambda
   (fexpr (formals . body) env
     (let ((thunk-code (cons fexpr (cons formals (cons _ body))))
@@ -75,11 +77,3 @@
   (if (null l)
     z
     (f (car l) (foldr f z (cdr l)))))
-
-(defn append (ls1 ls2)
-  (if (null ls1)
-    ls2
-    (cons (car ls1) (append (cdr ls1) ls2))))
-
-(defn append* lsts
-  (foldr append nil lsts))

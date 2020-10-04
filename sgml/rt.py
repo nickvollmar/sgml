@@ -2,6 +2,7 @@ import functools
 import operator as op
 import os
 import sys
+from contextlib import contextmanager
 
 import sgml.interpreter
 import sgml.reader
@@ -286,65 +287,76 @@ def primitives():
 
 _CURRENT_NS = None
 _NS_BY_NAME = {}
-_FILE_SEARCH_PATHS = [os.getcwd()]
+_IMPORT_SEARCH_PATHS = [os.getcwd(), os.path.join(os.path.dirname(__file__), "lib")]
 
-def _do_load_file(f, ns):
+
+@contextmanager
+def namespace_context(next_ns=None):
+    global _CURRENT_NS
+    _current_ns = _CURRENT_NS
+    if next_ns is not None:
+        _CURRENT_NS = next_ns
+    try:
+        yield
+    finally:
+        _CURRENT_NS = _current_ns
+
+
+def _do_load_file(f):
     stream = sgml.reader.streams.LineNumberingStream(sgml.reader.streams.FileStream(f))
     # https://stackoverflow.com/questions/1676835/how-to-get-a-reference-to-a-module-inside-the-module-itself/1676860#1676860
     module = sys.modules[__name__]
     forms = sgml.reader.read_many(module, sgml.reader.INITIAL_MACROS, stream)
     for form in iter_elements(forms):
-        sgml.interpreter.evaluate(module, form, ns)
+        sgml.interpreter.evaluate(module, form)
 
 
-def _uncached_stdlib_ns():
-    ns = Namespace(symbol(""), primitives())
-    with open(os.path.join(os.path.dirname(__file__), "stdlib.sgml")) as f:
-        _do_load_file(f, ns)
-    return ns
-
-
-_stdlib_ns = None
-def _cached_stdlib_ns():
-    global _stdlib_ns
-    if _stdlib_ns is None:
-        _stdlib_ns = _uncached_stdlib_ns()
-    return _stdlib_ns
-
-
-def _get_ns(name: Symbol):
-    return _NS_BY_NAME.get(name.text)
+_cached_stdlib_env_dict = None
+def stdlib_env():
+    global _cached_stdlib_env_dict
+    if _cached_stdlib_env_dict is None:
+        with open(os.path.join(os.path.dirname(__file__), "lib", "core.sgml")) as f:
+            _do_load_file(f)
+        _cached_stdlib_env_dict = dict(current_ns().env)
+    return _cached_stdlib_env_dict
 
 
 def _create_ns(name: Symbol):
-    new_ns = Namespace(name)
-    new_ns.include(_cached_stdlib_ns())
+    new_ns = Namespace(name, stdlib_env())
     _NS_BY_NAME[name.text] = new_ns
     return new_ns
 
 
+def current_ns():
+    return _CURRENT_NS
+
+
 def set_current_ns(name: Symbol):
-    return _get_ns(name) or _create_ns(name)
+    global _CURRENT_NS
+    _CURRENT_NS = _NS_BY_NAME.get(name.text) or _create_ns(name)
 
 
 def require_ns(name: Symbol):
-    preexisting = _get_ns(name)
-    if preexisting:
-        return preexisting
-    new_ns = _create_ns(name)
-    for p in _IMPORT_SEARCH_PATHS:
-        try:
-            with open(os.path.join(p, name.text + ".sgml")) as f:
-                _do_load_file(f, new_ns)
+    if name.text in _NS_BY_NAME:
+        return _NS_BY_NAME[name.text]
+    with namespace_context():
+        new_ns = _create_ns(name)
+        loaded = False
+        for p in _IMPORT_SEARCH_PATHS:
+            try:
+                with open(os.path.join(p, name.text + ".sgml")) as f:
+                    _do_load_file(f)
+            except FileNotFoundError:
+                continue
+            loaded = True
             break
-        except FileNotFoundError:
-            continue
-    return new_ns
+        assert loaded, "Unable to locate file for namespace {} (classpath {})".format(name.text, _IMPORT_SEARCH_PATHS)
+    current_ns().add_import(new_ns)
 
 
 def load_file(path: str):
     with open(path) as f:
-        _do_load_file(f, _CURRENT_NS)
+        _do_load_file(f)
 
 
 def debug(form) -> str:
@@ -361,3 +373,11 @@ def debug(form) -> str:
             + ' '.join(debug(f) for f in iter_elements(form))
             + ')'
     )
+
+
+def init():
+    global _CURRENT_NS
+    bootstrap = Namespace(symbol("core"), primitives())
+    _CURRENT_NS = bootstrap
+    _NS_BY_NAME["core"] = bootstrap
+    _CURRENT_NS = _create_ns(symbol("user"))
