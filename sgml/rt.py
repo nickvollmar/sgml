@@ -219,7 +219,7 @@ PRIMITIVE_FUNCTIONS = {
         ("print", _print),
         ("wrap", lambda arguments, env: wrap(first(arguments))),
         ("unwrap", lambda arguments, env: unwrap(first(arguments))),
-        ("make-environment", lambda _, __: _cached_stdlib_ns().scope()),
+        ("make-environment", lambda _, __: fresh_scope()),
         ("get-current-environment", lambda _, env: env),
 
         ("negative?", lambda arguments, env: _negative(arguments)),
@@ -373,6 +373,9 @@ def debug(form) -> str:
             + ' '.join(debug(f) for f in iter_elements(form))
             + ')'
     )
+
+def fresh_scope():
+    return Namespace(symbol(""), stdlib_env()).scope()
 
 
 def init():

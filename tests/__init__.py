@@ -9,6 +9,7 @@ import unittest
 class SgmlTestCase(unittest.TestCase):
     def setUp(self):
         self.rt = sgml.rt
+        self.rt.init()
 
     def eval(self, code: str, scope=None):
         forms = sgml.reader.read_many(

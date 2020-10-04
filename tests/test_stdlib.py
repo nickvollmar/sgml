@@ -98,5 +98,5 @@ class TestStdlib(tests.SgmlTestCase):
 
     def test_append_star(self):
         self.assertBothEval(
-            "(append* '(1 2) '(3) '(4 5 6) '(7 8))",
+            "(require lists) (lists::append* '(1 2) '(3) '(4 5 6) '(7 8))",
             "'(1 2 3 4 5 6 7 8)")

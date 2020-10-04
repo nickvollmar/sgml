@@ -89,7 +89,7 @@ class EvalStackFrame(StackFrame):
 
     def frame_or_value(self, rt):
         if rt.is_null(self.formlist):
-            scope = rt._cached_stdlib_ns().scope() if self.env_value is self.__missing else self.env_value
+            scope = rt.fresh_scope() if self.env_value is self.__missing else self.env_value
             return DispatchStackFrame(scope, self.parent, form=self.eval_value)
         return DispatchStackFrame(self.scope, self, form=rt.first(self.formlist))
 
